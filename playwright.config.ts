@@ -7,7 +7,7 @@ export default defineConfig({
   retries: process.env.CI ? 2 : 0,
   reporter: "list",
   use: {
-    baseURL: "http://localhost:3000",
+    baseURL: "http://localhost:3100",
     trace: "on-first-retry",
   },
   projects: [
@@ -22,12 +22,14 @@ export default defineConfig({
       grep: /@mobile/,
     },
   ],
-  // Production build: dev-mode StrictMode double-fetches would break the
-  // fixture request sequencing, and prod is the artifact worth testing.
+  // Production build on a dedicated port: dev-mode StrictMode double-fetches
+  // would break the fixture request sequencing, and reusing a dev server that
+  // happens to be on :3000 must never be possible — prod is the artifact
+  // worth testing.
   webServer: {
-    command: "npm run build && npm run start",
-    url: "http://localhost:3000",
-    reuseExistingServer: !process.env.CI,
+    command: "npm run build && npm run start -- --port 3100",
+    url: "http://localhost:3100",
+    reuseExistingServer: false,
     timeout: 180_000,
   },
 });
