@@ -1,7 +1,10 @@
 "use client";
 
-// Virtualized log table over TanStack Table's sorted row model. Sort state is
-// URL state (nuqs) — headers write it directly; the table consumes it read-only.
+// Virtualized log table. Flat view sorts through TanStack Table's sorted row
+// model; grouped view hand-rolls service groups (TanStack's grouped model
+// cannot order groups by aggregate count desc) and virtualizes a mixed list
+// of header and log rows. Sort state is URL state (nuqs) — headers write it
+// directly; the table consumes it read-only.
 
 import {
   createColumnHelper,
@@ -13,8 +16,10 @@ import {
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
 import { useMemo, useRef } from "react";
+import { GroupHeaderRow } from "@/components/group-header-row";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TimeCell } from "@/components/time-cell";
+import { groupByService } from "@/lib/filter";
 import type { FlatLog } from "@/lib/flatten";
 import type { SortState } from "@/lib/url-state";
 import { cn } from "@/lib/utils";
@@ -34,8 +39,13 @@ const columns = helper.columns([
 
 const ROW_GRID = "grid grid-cols-[7rem_6.5rem_1fr] gap-x-3 px-3";
 const ROW_HEIGHT: Record<"1" | "3", number> = { "1": 36, "3": 68 };
+const GROUP_HEADER_HEIGHT = 40;
 
 type SortColumn = "time" | "severity";
+
+type TableItem =
+  | { type: "log"; log: FlatLog }
+  | { type: "header"; group: ReturnType<typeof groupByService>[number] };
 
 function nextSort(column: SortColumn, current: SortState): SortState {
   const [currentColumn, direction] = current.split(".") as [SortColumn, "asc" | "desc"];
@@ -47,6 +57,14 @@ function ariaSort(column: SortColumn, sort: SortState): "ascending" | "descendin
   const [sortColumn, direction] = sort.split(".") as [SortColumn, "asc" | "desc"];
   if (sortColumn !== column) return undefined;
   return direction === "asc" ? "ascending" : "descending";
+}
+
+// Same semantics as the flat view's TanStack sort, applied within each group.
+function comparator(sort: SortState): (a: FlatLog, b: FlatLog) => number {
+  const [column, direction] = sort.split(".") as [SortColumn, "asc" | "desc"];
+  const key = column === "time" ? "timeMs" : "severityNumber";
+  const sign = direction === "asc" ? 1 : -1;
+  return (a, b) => sign * (a[key] - b[key]);
 }
 
 function SortHeader({
@@ -88,19 +106,25 @@ function SortHeader({
 export function LogsTable({
   logs,
   nowMs,
+  view,
   density,
   sort,
   onSortChange,
   selectedId,
   onSelect,
+  expandedKeys,
+  onToggleGroup,
 }: {
   logs: FlatLog[];
   nowMs: number;
+  view: "flat" | "grouped";
   density: "1" | "3";
   sort: SortState;
   onSortChange: (sort: SortState) => void;
   selectedId: string | null;
   onSelect: (log: FlatLog) => void;
+  expandedKeys: ReadonlySet<string>;
+  onToggleGroup: (serviceKey: string) => void;
 }) {
   const sorting = useMemo(() => {
     const [column, direction] = sort.split(".");
@@ -115,14 +139,32 @@ export function LogsTable({
     getRowId: (log: FlatLog) => log.id,
   });
 
-  const rows = table.getSortedRowModel().rows;
+  const sortedRows = table.getSortedRowModel().rows;
+
+  const items = useMemo<TableItem[]>(() => {
+    if (view === "flat") {
+      return sortedRows.map((row) => ({ type: "log", log: row.original }));
+    }
+    const compare = comparator(sort);
+    return groupByService(logs).flatMap((group): TableItem[] => [
+      { type: "header", group },
+      ...(expandedKeys.has(group.serviceKey)
+        ? [...group.logs].sort(compare).map((log): TableItem => ({ type: "log", log }))
+        : []),
+    ]);
+  }, [view, sortedRows, logs, sort, expandedKeys]);
+
   const scrollRef = useRef<HTMLDivElement>(null);
   const rowHeight = ROW_HEIGHT[density];
   const virtualizer = useVirtualizer({
-    count: rows.length,
+    count: items.length,
     getScrollElement: () => scrollRef.current,
-    estimateSize: () => rowHeight,
-    getItemKey: (index) => rows[index].id,
+    estimateSize: (index) =>
+      items[index].type === "header" ? GROUP_HEADER_HEIGHT : rowHeight,
+    getItemKey: (index) => {
+      const item = items[index];
+      return item.type === "header" ? `g:${item.group.serviceKey}` : item.log.id;
+    },
     overscan: 10,
   });
 
@@ -143,7 +185,7 @@ export function LogsTable({
         </div>
       </div>
 
-      {rows.length === 0 ? (
+      {items.length === 0 ? (
         <div className="grid flex-1 place-items-center p-8 text-sm text-muted-foreground">
           No logs in this range — widen the time window or refresh.
         </div>
@@ -154,8 +196,29 @@ export function LogsTable({
             className="relative w-full"
             style={{ height: virtualizer.getTotalSize() }}
           >
-            {virtualizer.getVirtualItems().map((item) => {
-              const log = rows[item.index].original;
+            {virtualizer.getVirtualItems().map((virtualItem) => {
+              const item = items[virtualItem.index];
+              const style = {
+                transform: `translateY(${virtualItem.start}px)`,
+                height: virtualItem.size,
+              };
+              if (item.type === "header") {
+                return (
+                  <div
+                    key={`g:${item.group.serviceKey}`}
+                    role="row"
+                    className="absolute inset-x-0 top-0"
+                    style={style}
+                  >
+                    <GroupHeaderRow
+                      group={item.group}
+                      expanded={expandedKeys.has(item.group.serviceKey)}
+                      onToggle={() => onToggleGroup(item.group.serviceKey)}
+                    />
+                  </div>
+                );
+              }
+              const log = item.log;
               return (
                 <div
                   key={log.id}
@@ -168,7 +231,7 @@ export function LogsTable({
                     "absolute inset-x-0 top-0 cursor-pointer items-start border-b py-2 hover:bg-accent/60",
                     selectedId === log.id && "bg-accent",
                   )}
-                  style={{ transform: `translateY(${item.start}px)`, height: item.size }}
+                  style={style}
                 >
                   <div role="cell">
                     <SeverityBadge

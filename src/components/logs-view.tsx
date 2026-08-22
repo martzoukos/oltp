@@ -3,9 +3,11 @@
 // Page shell: dataset + URL state wiring for toolbar, histogram, legend
 // filter, table, and detail sheet.
 
+import { List, ListTree } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Histogram } from "@/components/histogram";
 import { LogDetailsSheet } from "@/components/log-details-sheet";
 import { LogsTable } from "@/components/logs-table";
@@ -25,7 +27,7 @@ import { legendGroupOf } from "@/lib/severity";
 export function LogsView() {
   const { status, logs, error, fetchedAtMs, datasetId, refresh } = useLogs();
   const [windowState, setWindowState] = useQueryState("window", windowParser);
-  const [view] = useQueryState("view", viewParser);
+  const [view, setView] = useQueryState("view", viewParser);
   const [sort, setSort] = useQueryState("sort", sortParser);
   const [density, setDensity] = useQueryState("density", densityParser);
   const [severities, setSeverities] = useQueryState("severities", severitiesParser);
@@ -33,6 +35,8 @@ export function LogsView() {
   // Selection references the dataset by FlatLog id; refresh invalidates ids,
   // so selection is cleared alongside refresh().
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Expanded group keys are ephemeral too — serviceKeys reference the dataset.
+  const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(new Set());
 
   // Preset windows anchor to fetch time — the dataset spans the 24h ending there.
   const nowMs = fetchedAtMs ?? 0;
@@ -88,9 +92,28 @@ export function LogsView() {
           onDensityChange={(value) => void setDensity(value)}
           onRefresh={() => {
             setSelectedId(null);
+            setExpandedKeys(new Set());
             refresh();
           }}
-        />
+        >
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={view}
+            onValueChange={(value) => {
+              if (value === "flat" || value === "grouped") void setView(value);
+            }}
+            aria-label="View mode"
+          >
+            <ToggleGroupItem value="flat" aria-label="Flat view">
+              <List aria-hidden />
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grouped" aria-label="Group by service">
+              <ListTree aria-hidden />
+            </ToggleGroupItem>
+          </ToggleGroup>
+        </Toolbar>
       </header>
 
       <div className="border-b">
@@ -111,11 +134,21 @@ export function LogsView() {
       <LogsTable
         logs={visibleLogs}
         nowMs={nowMs}
+        view={view}
         density={density}
         sort={sort}
         onSortChange={(next) => void setSort(next)}
         selectedId={selectedId}
         onSelect={(log) => setSelectedId(log.id)}
+        expandedKeys={expandedKeys}
+        onToggleGroup={(serviceKey) =>
+          setExpandedKeys((keys) => {
+            const next = new Set(keys);
+            if (next.has(serviceKey)) next.delete(serviceKey);
+            else next.add(serviceKey);
+            return next;
+          })
+        }
       />
       {/* Selection references the dataset, not the filtered view: the sheet
           stays open even if its log is filtered out of the table. */}
