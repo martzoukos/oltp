@@ -1,8 +1,9 @@
 "use client";
 
 // Detail sidebar (decision 6): severity + timestamp + service, full body,
-// first-class trace/span ids, log attributes, then resource & scope
-// attributes collapsed. Copy buttons on ids, ID-ish values, the body, and
+// first-class trace/span ids, log attributes, then any resource attributes
+// the header didn't already absorb, and a one-line instrumentation footer
+// derived from the scope. Copy buttons on ids, ID-ish values, the body, and
 // the whole record as JSON.
 
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -102,6 +103,42 @@ function CollapsedSection({
   );
 }
 
+// The header line owns service identity, so the Resource attributes section
+// shows only what's left over. A key is absorbed only when it's a string —
+// the same condition flatten() uses to promote it into the header.
+function residualResourceAttributes(log: FlatLog): Record<string, AttrValue> {
+  const headerKeys = ["service.name", "service.namespace", "service.version"];
+  return Object.fromEntries(
+    Object.entries(log.resourceAttributes).filter(
+      ([key, value]) => !(headerKeys.includes(key) && typeof value === "string"),
+    ),
+  );
+}
+
+// Scope is provenance of the instrumentation, not information about this log —
+// in practice identical across every record. It renders as one quiet footer
+// line (derived per-log, so a second scope would still show its own truth);
+// the full structured form survives in Copy as JSON.
+function instrumentationLine(log: FlatLog): string | null {
+  const attrs = log.scopeAttributes;
+  const parts: string[] = [];
+  if (log.scopeName) parts.push(log.scopeName);
+  const sdkName = attrs["telemetry.sdk.name"];
+  if (sdkName !== undefined) {
+    const version = attrs["telemetry.sdk.version"];
+    const language = attrs["telemetry.sdk.language"];
+    parts.push(
+      `${String(sdkName)}${version !== undefined ? ` ${String(version)}` : ""}${
+        language !== undefined ? ` (${String(language)})` : ""
+      }`,
+    );
+  }
+  for (const [key, value] of Object.entries(attrs)) {
+    if (!key.startsWith("telemetry.sdk.")) parts.push(`${key}=${String(value)}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : null;
+}
+
 export function LogDetailsSheet({
   log,
   onClose,
@@ -119,6 +156,8 @@ export function LogDetailsSheet({
   position: number | null; // 1-based index in the table order; null when the
   total: number; //            shown log is filtered out of the current view
 }) {
+  const residualResource = log ? residualResourceAttributes(log) : {};
+  const instrumentation = log ? instrumentationLine(log) : null;
   return (
     // Non-modal: no overlay dimming/blurring the table, and the page behind
     // stays scrollable and clickable — clicking another row switches the
@@ -227,16 +266,22 @@ export function LogDetailsSheet({
                 <AttributesTable attributes={log.attributes} />
               </section>
 
-              <CollapsedSection
-                title="Resource attributes"
-                count={Object.keys(log.resourceAttributes).length}
-                attributes={log.resourceAttributes}
-              />
-              <CollapsedSection
-                title={`Scope attributes${log.scopeName ? ` · ${log.scopeName}` : ""}`}
-                count={Object.keys(log.scopeAttributes).length}
-                attributes={log.scopeAttributes}
-              />
+              {Object.keys(residualResource).length > 0 && (
+                <CollapsedSection
+                  title="Resource attributes"
+                  count={Object.keys(residualResource).length}
+                  attributes={residualResource}
+                />
+              )}
+              {instrumentation && (
+                <p
+                  data-instrumentation
+                  className="border-t pt-3 text-xs text-muted-foreground"
+                >
+                  <span className="mr-2 font-medium">Instrumentation</span>
+                  {instrumentation}
+                </p>
+              )}
             </div>
           </>
         )}

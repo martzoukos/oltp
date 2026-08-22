@@ -112,8 +112,12 @@ test.describe("detail sidebar", () => {
     for (const key of Object.keys(log.attributes).slice(0, 2)) {
       await expect(sheet).toContainText(key);
     }
-    // resource + scope sections collapsed by default
-    await expect(sheet.locator("details[open]")).toHaveCount(0);
+    // resource attrs are fully absorbed by the header's service line, so no
+    // Resource attributes section; scope renders as a one-line footer
+    await expect(sheet).not.toContainText("Resource attributes");
+    await expect(sheet.locator("[data-instrumentation]")).toContainText(
+      "mock · dash0-take-home-assignment 1.0.0 (nodejs)",
+    );
 
     await sheet.getByRole("button", { name: "Copy trace.id" }).click();
     expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(log.traceId);
