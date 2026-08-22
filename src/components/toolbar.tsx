@@ -1,7 +1,9 @@
 "use client";
 
 // Toolbar: time range picker (presets + custom absolute range + prev/next
-// arrows that shift by the window's own length), density toggle, refresh.
+// arrows that shift by the window's own length), refresh, theme toggle.
+// Table-scoped controls (view, density, mobile sort) live in the meta row
+// above the table — see LogsView.
 
 import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
@@ -15,7 +17,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import {
   resolveWindow,
   shiftWindow,
@@ -149,7 +150,7 @@ const SORT_OPTIONS: { value: SortState; label: string }[] = [
 ];
 
 // Mobile-only: column headers are hidden below sm, so sorting moves here.
-function MobileSortMenu({
+export function MobileSortMenu({
   sort,
   onSortChange,
 }: {
@@ -182,56 +183,25 @@ export function Toolbar({
   windowState,
   nowMs,
   onWindowStateChange,
-  density,
-  onDensityChange,
-  sort,
-  onSortChange,
   onRefresh,
-  children,
 }: {
   windowState: WindowState;
   nowMs: number;
   onWindowStateChange: (state: WindowState) => void;
-  density: "1" | "3";
-  onDensityChange: (density: "1" | "3") => void;
-  sort: SortState;
-  onSortChange: (sort: SortState) => void;
   onRefresh: () => void;
-  children?: React.ReactNode; // extra controls (view toggle) slot in here
 }) {
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       <TimeRangePicker
         windowState={windowState}
         nowMs={nowMs}
         onChange={onWindowStateChange}
       />
-      <div className="ml-auto flex items-center gap-2">
-        {children}
-        <ToggleGroup
-          type="single"
-          variant="outline"
-          size="sm"
-          value={density}
-          onValueChange={(value) => {
-            if (value === "1" || value === "3") onDensityChange(value);
-          }}
-          aria-label="Body density"
-        >
-          <ToggleGroupItem value="1" aria-label="1 line per row">
-            1L
-          </ToggleGroupItem>
-          <ToggleGroupItem value="3" aria-label="3 lines per row">
-            3L
-          </ToggleGroupItem>
-        </ToggleGroup>
-        <MobileSortMenu sort={sort} onSortChange={onSortChange} />
-        <ThemeToggle />
-        <Button variant="outline" size="sm" onClick={onRefresh}>
-          <RefreshCw aria-hidden />
-          <span className="max-sm:sr-only">Refresh</span>
-        </Button>
-      </div>
+      <Button variant="outline" size="sm" onClick={onRefresh}>
+        <RefreshCw aria-hidden />
+        <span className="max-sm:sr-only">Refresh</span>
+      </Button>
+      <ThemeToggle />
     </div>
   );
 }

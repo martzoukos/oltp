@@ -33,10 +33,19 @@ function isIdish(key: string): boolean {
   return /id$/i.test(key);
 }
 
+// Section headings are uppercase label-style so they never read as data rows.
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h3 className="text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+      {children}
+    </h3>
+  );
+}
+
 function IdRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-1">
-      <span className="w-16 shrink-0 text-xs text-muted-foreground">{label}</span>
+      <span className="w-20 shrink-0 font-mono text-xs text-muted-foreground">{label}</span>
       <code className="min-w-0 truncate font-mono text-xs" title={value}>
         {value}
       </code>
@@ -54,7 +63,7 @@ function AttributesTable({ attributes }: { attributes: Record<string, AttrValue>
     <dl className="divide-y divide-border/60 text-xs">
       {entries.map(([key, value]) => (
         <div key={key} className="flex items-start gap-2 py-1.5">
-          <dt className="w-2/5 shrink-0 break-all text-muted-foreground">{key}</dt>
+          <dt className="w-2/5 shrink-0 break-all font-mono text-muted-foreground">{key}</dt>
           <dd className="min-w-0 flex-1 break-all font-mono">{String(value)}</dd>
           {isIdish(key) && (
             <CopyButton value={String(value)} label={`Copy ${key}`} className="-my-1" />
@@ -67,16 +76,22 @@ function AttributesTable({ attributes }: { attributes: Record<string, AttrValue>
 
 function CollapsedSection({
   title,
+  count,
   attributes,
 }: {
   title: string;
+  count: number;
   attributes: Record<string, AttrValue>;
 }) {
   return (
     <details className="group border-t pt-3">
-      <summary className="cursor-pointer list-none text-xs font-medium text-muted-foreground select-none hover:text-foreground">
-        <span className="mr-1 inline-block transition-transform group-open:rotate-90">▸</span>
-        {title} ({Object.keys(attributes).length})
+      <summary className="list-none select-none text-muted-foreground hover:text-foreground">
+        <span className="mr-1 inline-block text-xs transition-transform group-open:rotate-90">
+          ▸
+        </span>
+        <span className="text-[11px] font-semibold tracking-wider uppercase">
+          {title} <span className="font-normal">({count})</span>
+        </span>
       </summary>
       <div className="mt-2">
         <AttributesTable attributes={attributes} />
@@ -98,11 +113,17 @@ export function LogDetailsSheet({
         side="right"
         // the defaults are data-[side=right]-scoped, so overrides must be too
         className="flex flex-col gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+        // Hand focus back to the table so arrow-key row navigation resumes
+        // from the row this sheet was opened on.
+        onCloseAutoFocus={(e) => {
+          e.preventDefault();
+          document.querySelector<HTMLElement>("[data-logs-scroll]")?.focus();
+        }}
       >
         {log && (
           <>
             <SheetHeader className="border-b">
-              <SheetTitle className="flex flex-wrap items-center gap-2 text-sm">
+              <SheetTitle className="flex flex-wrap items-center gap-2 pr-8 text-sm">
                 <SeverityBadge
                   severityNumber={log.severityNumber}
                   severityText={log.severityText}
@@ -112,23 +133,26 @@ export function LogDetailsSheet({
                 </span>
               </SheetTitle>
               <SheetDescription className="flex items-center gap-2 text-xs">
-                <span className="truncate">
+                <span className="text-muted-foreground">Service</span>
+                <span className="truncate font-medium text-foreground">
                   {log.serviceNamespace ? `${log.serviceNamespace}/` : ""}
                   {log.serviceName}
                   {log.serviceVersion ? ` · v${log.serviceVersion}` : ""}
                 </span>
-                <CopyButton
-                  value={JSON.stringify(log, null, 2)}
-                  label="Copy as JSON"
-                  className="ml-auto"
-                />
               </SheetDescription>
+              <CopyButton
+                value={JSON.stringify(log, null, 2)}
+                label="Copy as JSON"
+                className="mt-2 self-start"
+              >
+                Copy as JSON
+              </CopyButton>
             </SheetHeader>
 
-            <div className="flex flex-col gap-4 p-4">
+            <div className="flex flex-col gap-5 p-4">
               <section>
-                <div className="mb-1 flex items-center justify-between">
-                  <h3 className="text-xs font-medium text-muted-foreground">Body</h3>
+                <div className="mb-1.5 flex items-center justify-between">
+                  <SectionHeading>Body</SectionHeading>
                   <CopyButton value={log.body} label="Copy body" />
                 </div>
                 <pre
@@ -147,15 +171,23 @@ export function LogDetailsSheet({
               )}
 
               <section>
-                <h3 className="mb-1 text-xs font-medium text-muted-foreground">
-                  Attributes ({Object.keys(log.attributes).length})
-                </h3>
+                <div className="mb-1.5">
+                  <SectionHeading>
+                    Attributes{" "}
+                    <span className="font-normal">({Object.keys(log.attributes).length})</span>
+                  </SectionHeading>
+                </div>
                 <AttributesTable attributes={log.attributes} />
               </section>
 
-              <CollapsedSection title="Resource attributes" attributes={log.resourceAttributes} />
+              <CollapsedSection
+                title="Resource attributes"
+                count={Object.keys(log.resourceAttributes).length}
+                attributes={log.resourceAttributes}
+              />
               <CollapsedSection
                 title={`Scope attributes${log.scopeName ? ` · ${log.scopeName}` : ""}`}
+                count={Object.keys(log.scopeAttributes).length}
                 attributes={log.scopeAttributes}
               />
             </div>

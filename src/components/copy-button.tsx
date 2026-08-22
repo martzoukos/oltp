@@ -9,10 +9,12 @@ export function CopyButton({
   value,
   label,
   className,
+  children,
 }: {
   value: string;
   label: string;
   className?: string;
+  children?: React.ReactNode; // visible text turns it into an outline button
 }) {
   const [copied, setCopied] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout>>(null);
@@ -24,10 +26,13 @@ export function CopyButton({
   return (
     <Button
       type="button"
-      variant="ghost"
-      size="icon-sm"
+      variant={children ? "outline" : "ghost"}
+      size={children ? "xs" : "icon-sm"}
       aria-label={label}
-      className={cn("size-6 text-muted-foreground hover:text-foreground", className)}
+      className={cn(
+        !children && "size-6 text-muted-foreground hover:text-foreground",
+        className,
+      )}
       onClick={() => {
         void navigator.clipboard.writeText(value).then(() => {
           setCopied(true);
@@ -37,6 +42,7 @@ export function CopyButton({
       }}
     >
       {copied ? <Check className="size-3.5" aria-hidden /> : <Copy className="size-3.5" aria-hidden />}
+      {children}
     </Button>
   );
 }

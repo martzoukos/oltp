@@ -15,7 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, useState } from "react";
 import { GroupHeaderRow } from "@/components/group-header-row";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TimeCell } from "@/components/time-cell";
@@ -158,6 +158,10 @@ export function LogsTable({
   }, [view, sortedRows, logs, sort, expandedKeys]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
+  // Keyboard cursor: the outlined row that Up/Down move and Enter/Space open.
+  // Hover and click park the cursor too, so movement continues from the last
+  // row the user touched after the detail sheet closes.
+  const [activeId, setActiveId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const rowHeight = isMobile ? MOBILE_ROW_HEIGHT[density] : ROW_HEIGHT[density];
   const virtualizer = useVirtualizer({
@@ -171,6 +175,38 @@ export function LogsTable({
     },
     overscan: 10,
   });
+
+  const activeItem = activeId
+    ? items.find((item) => item.type === "log" && item.log.id === activeId)
+    : undefined;
+
+  const moveActive = (dir: 1 | -1) => {
+    const currentIndex = activeId
+      ? items.findIndex((item) => item.type === "log" && item.log.id === activeId)
+      : -1;
+    let next = currentIndex === -1 ? (dir === 1 ? 0 : items.length - 1) : currentIndex + dir;
+    while (next >= 0 && next < items.length && items[next].type !== "log") next += dir;
+    if (next < 0 || next >= items.length) return;
+    const item = items[next];
+    if (item.type !== "log") return;
+    setActiveId(item.log.id);
+    virtualizer.scrollToIndex(next, { align: "auto" });
+  };
+
+  const onContainerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      moveActive(e.key === "ArrowDown" ? 1 : -1);
+      return;
+    }
+    // Enter/Space on a focused group-header button must only toggle the group.
+    if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
+      if (activeItem?.type === "log") {
+        e.preventDefault();
+        onSelect(activeItem.log);
+      }
+    }
+  };
 
   return (
     <div role="table" aria-label="Log records" className="flex min-h-0 flex-1 flex-col">
@@ -195,7 +231,18 @@ export function LogsTable({
           No logs in this range — widen the time window or refresh.
         </div>
       ) : (
-        <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto">
+        <div
+          ref={scrollRef}
+          data-logs-scroll
+          tabIndex={0}
+          aria-activedescendant={activeId ? `log-row-${activeId}` : undefined}
+          onKeyDown={onContainerKeyDown}
+          onFocus={(e) => {
+            // Tab lands here with no cursor yet — park it on the first row.
+            if (e.target === e.currentTarget && !activeItem) moveActive(1);
+          }}
+          className="min-h-0 flex-1 overflow-y-auto outline-none"
+        >
           <div
             role="rowgroup"
             className="relative w-full"
@@ -228,22 +275,21 @@ export function LogsTable({
               return (
                 <div
                   key={log.id}
+                  id={`log-row-${log.id}`}
                   role="row"
                   data-log-row
                   data-severity={log.severityNumber}
-                  tabIndex={0}
                   aria-selected={selectedId === log.id}
-                  onClick={() => onSelect(log)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      onSelect(log);
-                    }
+                  onClick={() => {
+                    setActiveId(log.id);
+                    onSelect(log);
                   }}
+                  onMouseEnter={() => setActiveId(log.id)}
                   className={cn(
                     isMobile ? "flex flex-col gap-1 px-3" : cn(ROW_GRID, "items-start"),
-                    "absolute inset-x-0 top-0 cursor-pointer border-b py-2 hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none",
+                    "absolute inset-x-0 top-0 cursor-pointer border-b py-2 hover:bg-accent/60",
                     selectedId === log.id && "bg-accent",
+                    activeId === log.id && "ring-2 ring-inset ring-ring",
                   )}
                   style={style}
                 >

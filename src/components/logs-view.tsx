@@ -3,7 +3,7 @@
 // Page shell: dataset + URL state wiring for toolbar, histogram, legend
 // filter, table, and detail sheet.
 
-import { List, ListTree } from "lucide-react";
+import { List, ListTree, Rows2, Rows4 } from "lucide-react";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { Histogram } from "@/components/histogram";
 import { LogDetailsSheet } from "@/components/log-details-sheet";
 import { LogsTable } from "@/components/logs-table";
 import { SeverityLegend } from "@/components/severity-legend";
-import { Toolbar } from "@/components/toolbar";
+import { MobileSortMenu, Toolbar } from "@/components/toolbar";
 import { useLogs } from "@/components/logs-provider";
 import { resolveWindow } from "@/lib/time";
 import {
@@ -75,47 +75,22 @@ export function LogsView() {
   }
 
   return (
-    <main className="flex h-dvh flex-col">
-      <header className="flex flex-col gap-2 border-b px-3 py-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <h1 className="text-sm font-semibold">Logs</h1>
-          <span className="text-xs text-muted-foreground" data-dataset-id={datasetId}>
-            {visibleLogs.length} of {logs!.length} logs
-          </span>
-          <span className="sr-only">view {view}</span>
-        </div>
-        <Toolbar
-          windowState={windowState}
-          nowMs={nowMs}
-          onWindowStateChange={(state) => void setWindowState(state)}
-          density={density}
-          onDensityChange={(value) => void setDensity(value)}
-          sort={sort}
-          onSortChange={(next) => void setSort(next)}
-          onRefresh={() => {
-            setSelectedId(null);
-            setExpandedKeys(new Set());
-            refresh();
-          }}
-        >
-          <ToggleGroup
-            type="single"
-            variant="outline"
-            size="sm"
-            value={view}
-            onValueChange={(value) => {
-              if (value === "flat" || value === "grouped") void setView(value);
+    <main className="mx-auto flex h-dvh w-full max-w-6xl flex-col xl:border-x">
+      <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
+        <h1 className="text-sm font-semibold">Logs</h1>
+        <span className="sr-only">view {view}</span>
+        <div className="ml-auto">
+          <Toolbar
+            windowState={windowState}
+            nowMs={nowMs}
+            onWindowStateChange={(state) => void setWindowState(state)}
+            onRefresh={() => {
+              setSelectedId(null);
+              setExpandedKeys(new Set());
+              refresh();
             }}
-            aria-label="View mode"
-          >
-            <ToggleGroupItem value="flat" aria-label="Flat view">
-              <List aria-hidden />
-            </ToggleGroupItem>
-            <ToggleGroupItem value="grouped" aria-label="Group by service">
-              <ListTree aria-hidden />
-            </ToggleGroupItem>
-          </ToggleGroup>
-        </Toolbar>
+          />
+        </div>
       </header>
 
       <div className="border-b">
@@ -131,6 +106,54 @@ export function LogsView() {
           severities={severities}
           onChange={(next) => void setSeverities(next)}
         />
+      </div>
+
+      {/* Table meta row: result count left, table-scoped controls right. */}
+      <div className="flex items-center gap-2 border-b px-3 py-1.5">
+        <span className="text-xs text-muted-foreground" data-dataset-id={datasetId}>
+          {visibleLogs.length} of {logs!.length} logs
+        </span>
+        <div className="ml-auto flex items-center gap-2">
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={view}
+            onValueChange={(value) => {
+              if (value === "flat" || value === "grouped") void setView(value);
+            }}
+            aria-label="View mode"
+          >
+            <ToggleGroupItem value="flat" aria-label="Flat view">
+              <List aria-hidden />
+              <span className="max-sm:sr-only">Flat</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="grouped" aria-label="Group by service">
+              <ListTree aria-hidden />
+              <span className="max-sm:sr-only">Grouped</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <ToggleGroup
+            type="single"
+            variant="outline"
+            size="sm"
+            value={density}
+            onValueChange={(value) => {
+              if (value === "1" || value === "3") void setDensity(value);
+            }}
+            aria-label="Body density"
+          >
+            <ToggleGroupItem value="1" aria-label="1 line per row">
+              <Rows4 aria-hidden />
+              <span className="max-sm:sr-only">1 line</span>
+            </ToggleGroupItem>
+            <ToggleGroupItem value="3" aria-label="3 lines per row">
+              <Rows2 aria-hidden />
+              <span className="max-sm:sr-only">3 lines</span>
+            </ToggleGroupItem>
+          </ToggleGroup>
+          <MobileSortMenu sort={sort} onSortChange={(next) => void setSort(next)} />
+        </div>
       </div>
 
       <LogsTable
