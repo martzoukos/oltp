@@ -1,5 +1,7 @@
 # OTLP Log Viewer
 
+**Live: [oltp-pi.vercel.app](https://oltp-pi.vercel.app)**
+
 A log viewer for OTLP log records, built with Next.js (App Router), React, and
 TypeScript. Fetches from the take-home OTLP logs API, flattens the nested
 resource → scope → record hierarchy client-side, and renders a virtualized,
