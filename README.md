@@ -41,7 +41,8 @@ request, so fixtures are the only route to deterministic UI tests.
   become fixed ranges — they stop following the clock.
 - **Flat & grouped views** — flat is a virtualized sortable table; a
   "Group by service" toggle nests rows under sticky, open-by-default service
-  headers ordered by log count, each with a severity breakdown.
+  headers ordered by log count, each with a severity breakdown. "Expand all" /
+  "Collapse all" links appear beside the toggle for bulk open/close.
 - **Detail sheet** — non-modal: the table stays scrollable and clickable while
   it's open. Full body (JSON pretty-printed), first-class trace.id/span.id
   with copy buttons, log attributes; service resource attributes fold into the

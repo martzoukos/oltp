@@ -219,20 +219,61 @@ test.describe("grouped view", () => {
     await page.getByRole("switch", { name: "Group by service" }).click();
     await expect(page).toHaveURL(/view=grouped/);
 
+    // groups are open by default; only ~a viewport of items is rendered
+    // (virtualization), so assert the first group, not a total header count
     const headers = page.locator("[data-group-header]");
-    await expect(headers).toHaveCount(counts.size);
+    await expect(headers.first()).toHaveAttribute("aria-expanded", "true");
+    expect(await page.locator("[data-log-row]").count()).toBeGreaterThan(0);
     // groups ordered by count desc; header shows count badge
     await expect(headers.first()).toHaveAttribute("data-group-header", ordered[0][0]);
     await expect(headers.first()).toContainText(String(ordered[0][1]));
-    // children hidden until expanded
-    await expect(page.locator("[data-log-row]")).toHaveCount(0);
+
+    // collapsing the first (largest) group hides its rows — the next visible
+    // header becomes the second group
+    await headers.first().click();
+    await expect(headers.first()).toHaveAttribute("aria-expanded", "false");
+    await expect(headers.nth(1)).toHaveAttribute("data-group-header", ordered[1][0]);
 
     await headers.first().click();
     await expect(headers.first()).toHaveAttribute("aria-expanded", "true");
-    expect(await page.locator("[data-log-row]").count()).toBeGreaterThan(0);
+  });
 
-    await headers.first().click();
+  test("expand all / collapse all links bulk-toggle every group", async ({ page }) => {
+    const server = await openApp(page);
+    const serviceCount = new Set(server.flat().map((l) => l.serviceKey)).size;
+    const expandAll = page.getByRole("button", { name: "Expand all" });
+    const collapseAll = page.getByRole("button", { name: "Collapse all" });
+
+    // links only exist in grouped view
+    await expect(expandAll).toBeHidden();
+    await page.getByRole("switch", { name: "Group by service" }).click();
+    await expect(expandAll).toBeVisible();
+
+    // groups start fully expanded, so only "Collapse all" is actionable
+    await expect(expandAll).toBeDisabled();
+    await expect(collapseAll).toBeEnabled();
+
+    // collapse all: no log rows left, every header rendered and closed
+    await collapseAll.click();
     await expect(page.locator("[data-log-row]")).toHaveCount(0);
+    const headers = page.locator("[data-group-header]");
+    await expect(headers).toHaveCount(serviceCount);
+    for (const header of await headers.all()) {
+      await expect(header).toHaveAttribute("aria-expanded", "false");
+    }
+    await expect(collapseAll).toBeDisabled();
+
+    // a single manual expand puts groups in a mixed state — both actionable
+    await headers.first().click();
+    await expect(expandAll).toBeEnabled();
+    await expect(collapseAll).toBeEnabled();
+
+    // expand all restores rows everywhere
+    await expandAll.click();
+    await expect(headers.first()).toHaveAttribute("aria-expanded", "true");
+    expect(await page.locator("[data-log-row]").count()).toBeGreaterThan(0);
+    await expect(expandAll).toBeDisabled();
+    await expect(collapseAll).toBeEnabled();
   });
 });
 

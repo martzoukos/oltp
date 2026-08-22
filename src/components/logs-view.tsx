@@ -77,6 +77,14 @@ export function LogsView() {
     () => items.flatMap((item) => (item.type === "log" ? [item.log] : [])),
     [items],
   );
+  // Grouped-view bulk expand/collapse targets. From items (not collapsedKeys):
+  // collapsedKeys may hold keys of groups filtered out of the current view.
+  const serviceKeys = useMemo(
+    () => items.flatMap((item) => (item.type === "header" ? [item.group.serviceKey] : [])),
+    [items],
+  );
+  const allExpanded = serviceKeys.every((key) => !collapsedKeys.has(key));
+  const allCollapsed = serviceKeys.every((key) => collapsedKeys.has(key));
 
   const cursorIndex = activeId ? orderedLogs.findIndex((l) => l.id === activeId) : -1;
 
@@ -255,6 +263,26 @@ export function LogsView() {
           {visibleLogs.length} of {logs!.length} logs
         </span>
         <div className="ml-auto flex items-center gap-2">
+          {view === "grouped" && (
+            <span className="flex items-center gap-1.5 text-xs">
+              <button
+                type="button"
+                disabled={allExpanded}
+                onClick={() => setCollapsedKeys(new Set())}
+                className="cursor-pointer text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-default disabled:no-underline disabled:opacity-50"
+              >
+                Expand all
+              </button>
+              <button
+                type="button"
+                disabled={allCollapsed}
+                onClick={() => setCollapsedKeys(new Set(serviceKeys))}
+                className="cursor-pointer text-muted-foreground underline underline-offset-2 hover:text-foreground disabled:cursor-default disabled:no-underline disabled:opacity-50"
+              >
+                Collapse all
+              </button>
+            </span>
+          )}
           <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs">
             <Switch
               checked={view === "grouped"}
