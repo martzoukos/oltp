@@ -29,7 +29,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
         {/* Apply the stored/system theme before first paint to avoid a flash. */}
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{var t=localStorage.getItem("theme");if(t==="dark"||(!t&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")}catch(e){}`,
+            __html: `var t;try{t=localStorage.getItem("theme")}catch(e){}if(t==="dark"||(t!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches))document.documentElement.classList.add("dark")`,
           }}
         />
         <NuqsAdapter>{children}</NuqsAdapter>
