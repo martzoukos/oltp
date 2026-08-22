@@ -15,7 +15,7 @@ import {
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GroupHeaderRow } from "@/components/group-header-row";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TimeCell } from "@/components/time-cell";
@@ -193,20 +193,37 @@ export function LogsTable({
     virtualizer.scrollToIndex(next, { align: "auto" });
   };
 
-  const onContainerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+  const handleNavKey = (e: { key: string; preventDefault: () => void }, allowOpen: boolean) => {
     if (e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
       moveActive(e.key === "ArrowDown" ? 1 : -1);
       return;
     }
-    // Enter/Space on a focused group-header button must only toggle the group.
-    if ((e.key === "Enter" || e.key === " ") && e.target === e.currentTarget) {
-      if (activeItem?.type === "log") {
-        e.preventDefault();
-        onSelect(activeItem.log);
-      }
+    if ((e.key === "Enter" || e.key === " ") && allowOpen && activeItem?.type === "log") {
+      e.preventDefault();
+      onSelect(activeItem.log);
     }
   };
+
+  const onContainerKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    // Enter/Space on a focused group-header button must only toggle the group.
+    handleNavKey(e, e.target === e.currentTarget);
+  };
+
+  // Arrows work from first load, before anything has focus: keydowns whose
+  // target is the page body (nothing focused) fall through to row navigation.
+  // Focused controls and the open sheet are never the body, so their key
+  // behavior is untouched. Ref keeps the listener stable across renders.
+  const navRef = useRef(handleNavKey);
+  navRef.current = handleNavKey;
+  useEffect(() => {
+    const listener = (e: KeyboardEvent) => {
+      if (e.target !== document.body || e.defaultPrevented) return;
+      navRef.current(e, true);
+    };
+    window.addEventListener("keydown", listener);
+    return () => window.removeEventListener("keydown", listener);
+  }, []);
 
   return (
     <div role="table" aria-label="Log records" className="flex min-h-0 flex-1 flex-col">
@@ -285,11 +302,19 @@ export function LogsTable({
                     onSelect(log);
                   }}
                   onMouseEnter={() => setActiveId(log.id)}
+                  data-active={activeId === log.id ? "true" : undefined}
                   className={cn(
-                    isMobile ? "flex flex-col gap-1 px-3" : cn(ROW_GRID, "items-start"),
-                    "absolute inset-x-0 top-0 cursor-pointer border-b py-2 hover:bg-accent/60",
+                    isMobile
+                      ? "flex flex-col gap-1 px-3 py-2"
+                      : cn(
+                          ROW_GRID,
+                          // 1-line rows center their single line; 3-line rows
+                          // top-align so the clamp reads from the top.
+                          density === "1" ? "items-center" : "items-start py-2",
+                        ),
+                    "absolute inset-x-0 top-0 cursor-pointer border-b hover:bg-accent/60",
                     selectedId === log.id && "bg-accent",
-                    activeId === log.id && "ring-2 ring-inset ring-ring",
+                    activeId === log.id && "bg-accent/40 ring-1 ring-inset ring-ring/40",
                   )}
                   style={style}
                 >

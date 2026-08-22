@@ -4,6 +4,7 @@
 // filter, table, and detail sheet.
 
 import { List, ListTree, Rows2, Rows4 } from "lucide-react";
+import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -77,7 +78,19 @@ export function LogsView() {
   return (
     <main className="mx-auto flex h-dvh w-full max-w-6xl flex-col xl:border-x">
       <header className="flex flex-wrap items-center gap-2 border-b px-3 py-2">
-        <h1 className="text-sm font-semibold">Logs</h1>
+        <h1 className="text-sm font-semibold">
+          {/* Home link: clears every URL param; ephemeral selection/expansion
+              reference the dataset and must be cleared explicitly. */}
+          <Link
+            href="/"
+            onClick={() => {
+              setSelectedId(null);
+              setExpandedKeys(new Set());
+            }}
+          >
+            Logs
+          </Link>
+        </h1>
         <span className="sr-only">view {view}</span>
         <div className="ml-auto">
           <Toolbar

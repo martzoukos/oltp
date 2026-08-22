@@ -125,6 +125,45 @@ test.describe("detail sidebar", () => {
   });
 });
 
+test.describe("keyboard navigation", () => {
+  test("arrows drive an outlined row from first load; enter opens, movement resumes after close", async ({
+    page,
+  }) => {
+    await openApp(page);
+    const rows = page.locator("[data-log-row]");
+
+    // Nothing is focused yet — arrows must work immediately.
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(0)).toHaveAttribute("data-active", "true");
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
+    await expect(rows.nth(0)).not.toHaveAttribute("data-active", "true");
+    await page.keyboard.press("ArrowUp");
+    await expect(rows.nth(0)).toHaveAttribute("data-active", "true");
+
+    // Enter opens the sheet for the active row.
+    const activeBody = await rows.nth(0).locator("[data-log-body]").textContent();
+    await page.keyboard.press("Enter");
+    const sheet = page.getByRole("dialog");
+    await expect(sheet).toBeVisible();
+    await expect(sheet.locator("[data-log-detail-body]")).toContainText(
+      activeBody!.replace(/…$/, "").slice(0, 30),
+    );
+
+    // Escape closes; movement resumes from the row the sheet was opened on.
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(1)).toHaveAttribute("data-active", "true");
+
+    // Hovering parks the cursor; arrows continue from there.
+    await rows.nth(4).hover();
+    await expect(rows.nth(4)).toHaveAttribute("data-active", "true");
+    await page.keyboard.press("ArrowDown");
+    await expect(rows.nth(5)).toHaveAttribute("data-active", "true");
+  });
+});
+
 test.describe("grouped view", () => {
   test("view toggle groups rows under expandable service headers", async ({ page }) => {
     const server = await openApp(page);

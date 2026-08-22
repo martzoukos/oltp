@@ -2,7 +2,7 @@ import { legendGroupOf, severityBucket, type LegendGroup } from "@/lib/severity"
 import { cn } from "@/lib/utils";
 
 // Full literal class strings so Tailwind's scanner picks them up.
-const GROUP_CLASSES: Record<LegendGroup, string> = {
+export const GROUP_CLASSES: Record<LegendGroup, string> = {
   error: "text-severity-error-ink bg-severity-error/12",
   warn: "text-severity-warn-ink bg-severity-warn/12",
   info: "text-severity-info-ink bg-severity-info/12",

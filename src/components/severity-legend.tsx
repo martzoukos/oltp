@@ -5,7 +5,7 @@
 // builds a union; × clears. Counts reflect the current time window.
 
 import { X } from "lucide-react";
-import { GROUP_DOT_CLASSES } from "@/components/severity-badge";
+import { GROUP_CLASSES } from "@/components/severity-badge";
 import type { FlatLog } from "@/lib/flatten";
 import { LEGEND_GROUPS, legendGroupOf, type LegendGroup } from "@/lib/severity";
 import { cn } from "@/lib/utils";
@@ -43,17 +43,16 @@ export function SeverityLegend({
             type="button"
             onClick={() => toggle(group.id)}
             aria-pressed={severities.includes(group.id)}
+            // Same visual language as the row severity badges: tinted
+            // background, ink text, mono uppercase. Inactive chips dim.
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs tabular-nums transition-colors hover:bg-accent",
-              active ? "text-foreground" : "text-muted-foreground opacity-55",
+              "inline-flex items-center gap-1.5 rounded-sm px-1.5 py-0.5 font-mono text-[11px] font-medium tracking-wide uppercase tabular-nums transition-opacity",
+              GROUP_CLASSES[group.id],
+              active ? "hover:opacity-75" : "opacity-35 hover:opacity-60",
             )}
           >
-            <span
-              className={cn("size-2 rounded-[2px]", GROUP_DOT_CLASSES[group.id])}
-              aria-hidden
-            />
             {group.label}
-            <span className="text-muted-foreground">{counts.get(group.id) ?? 0}</span>
+            <span className="font-normal opacity-70">{counts.get(group.id) ?? 0}</span>
           </button>
         );
       })}
