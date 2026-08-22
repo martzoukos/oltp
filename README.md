@@ -30,19 +30,26 @@ request, so fixtures are the only route to deterministic UI tests.
 
 - **Histogram** — hand-rolled SVG, stacked by severity group. Click a bar to
   zoom to that bucket; drag to select a range; hover for per-severity counts.
-  Bucket sizes snap to nice units targeting ≤60 bars per window.
+  Bucket sizes snap to nice units targeting ≤60 bars per window. A chip above
+  the chart shows the window length, with an undo button that steps back
+  through zooms.
 - **Severity filtering** — the legend chips under the histogram are the filter
   (dash0 pattern): Error & Fatal, Warn, Info, Trace & Debug, Unknown. Chips
   filter bars and rows together.
 - **Time windows** — presets (30m/1h/6h/24h/7d), custom absolute ranges, and
   prev/next arrows that shift the window by its own length. Shifted windows
   become fixed ranges — they stop following the clock.
-- **Flat & grouped views** — flat is a virtualized sortable table; grouped
-  nests rows under expandable service headers ordered by log count, each with
-  a severity breakdown.
-- **Detail sidebar** — full body (JSON pretty-printed), first-class
-  trace.id/span.id with copy buttons, log attributes, resource/scope
-  attributes collapsed. Copy any id, the body, or the whole record as JSON.
+- **Flat & grouped views** — flat is a virtualized sortable table; a
+  "Group by service" toggle nests rows under sticky, open-by-default service
+  headers ordered by log count, each with a severity breakdown.
+- **Detail sheet** — non-modal: the table stays scrollable and clickable while
+  it's open. Full body (JSON pretty-printed), first-class trace.id/span.id
+  with copy buttons, log attributes; service resource attributes fold into the
+  header and scope shows as an instrumentation footer. Copy any id, the body,
+  or the whole record as JSON. Previous/Next buttons and arrow keys page
+  through logs in table order, with a "3 of 325" position counter.
+- **Keyboard nav** — arrow keys move the row cursor from first load,
+  Enter/Space opens the sheet, Escape closes it.
 - **URL state** — window, view, sort, density, and severity filter live in the
   URL (nuqs). Any view is shareable as a link.
 - **Light/dark** — system default plus a toggle, applied pre-hydration.
