@@ -5,8 +5,10 @@
 // attributes collapsed. Copy buttons on ids, ID-ish values, the body, and
 // the whole record as JSON.
 
+import { ChevronDown, ChevronUp } from "lucide-react";
 import { CopyButton } from "@/components/copy-button";
 import { SeverityBadge } from "@/components/severity-badge";
+import { Button } from "@/components/ui/button";
 import {
   Sheet,
   SheetContent,
@@ -103,16 +105,28 @@ function CollapsedSection({
 export function LogDetailsSheet({
   log,
   onClose,
+  onNavigate,
+  hasPrev,
+  hasNext,
 }: {
   log: FlatLog | null;
   onClose: () => void;
+  onNavigate: (dir: 1 | -1) => void;
+  hasPrev: boolean;
+  hasNext: boolean;
 }) {
   return (
-    <Sheet open={log !== null} onOpenChange={(open) => !open && onClose()}>
+    // Non-modal: no overlay dimming/blurring the table, and the page behind
+    // stays scrollable and clickable — clicking another row switches the
+    // sheet to it instead of closing.
+    <Sheet modal={false} open={log !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
         // the defaults are data-[side=right]-scoped, so overrides must be too
         className="flex flex-col gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
+        // Non-modal dismisses on any outside interaction by default; the
+        // sheet should only close via ×, Escape, or its own controls.
+        onInteractOutside={(e) => e.preventDefault()}
         // Hand focus back to the table so arrow-key row navigation resumes
         // from the row this sheet was opened on.
         onCloseAutoFocus={(e) => {
@@ -122,8 +136,29 @@ export function LogDetailsSheet({
       >
         {log && (
           <>
+            {/* Prev/next: same order as the table's arrow-key navigation. */}
+            <div className="absolute top-3 right-11 flex items-center">
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Previous log"
+                disabled={!hasPrev}
+                onClick={() => onNavigate(-1)}
+              >
+                <ChevronUp aria-hidden />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Next log"
+                disabled={!hasNext}
+                onClick={() => onNavigate(1)}
+              >
+                <ChevronDown aria-hidden />
+              </Button>
+            </div>
             <SheetHeader className="border-b">
-              <SheetTitle className="flex flex-wrap items-center gap-2 pr-8 text-sm">
+              <SheetTitle className="flex flex-wrap items-center gap-2 pr-24 text-sm">
                 <SeverityBadge
                   severityNumber={log.severityNumber}
                   severityText={log.severityText}

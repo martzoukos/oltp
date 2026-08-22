@@ -3,13 +3,13 @@
 // Page shell: dataset + URL state wiring for toolbar, histogram, legend
 // filter, table, and detail sheet.
 
-import { ListTree, Rows2, Rows4, Undo2 } from "lucide-react";
+import { Rows2, Rows4, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { Toggle } from "@/components/ui/toggle";
+import { Switch } from "@/components/ui/switch";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Histogram } from "@/components/histogram";
 import { LogDetailsSheet } from "@/components/log-details-sheet";
@@ -17,6 +17,7 @@ import { LogsTable } from "@/components/logs-table";
 import { SeverityLegend } from "@/components/severity-legend";
 import { MobileSortMenu, Toolbar } from "@/components/toolbar";
 import { useLogs } from "@/components/logs-provider";
+import { buildTableItems } from "@/lib/table-items";
 import { formatDuration, resolveWindow, type WindowState } from "@/lib/time";
 import {
   densityParser,
@@ -61,6 +62,86 @@ export function LogsView() {
     return windowLogs.filter((log) => severities.includes(legendGroupOf(log.severityNumber)));
   }, [windowLogs, severities]);
 
+  // Keyboard cursor: the outlined row that arrows move. Lives here (not in
+  // the table) because the sheet's prev/next and open-sheet arrow paging
+  // navigate the same order. Hover and click park it too.
+  const [activeId, setActiveId] = useState<string | null>(null);
+
+  // Exact table order — the table renders these same items.
+  const items = useMemo(
+    () => buildTableItems(visibleLogs, view, sort, expandedKeys),
+    [visibleLogs, view, sort, expandedKeys],
+  );
+  const orderedLogs = useMemo(
+    () => items.flatMap((item) => (item.type === "log" ? [item.log] : [])),
+    [items],
+  );
+
+  const cursorIndex = activeId ? orderedLogs.findIndex((l) => l.id === activeId) : -1;
+
+  const navigate = (dir: 1 | -1, opts?: { select?: boolean }) => {
+    if (orderedLogs.length === 0) return;
+    // A lost cursor (filtered-out row, fresh load) re-enters at the ends.
+    const next = cursorIndex === -1 ? (dir === 1 ? 0 : orderedLogs.length - 1) : cursorIndex + dir;
+    if (next < 0 || next >= orderedLogs.length) return;
+    const log = orderedLogs[next];
+    setActiveId(log.id);
+    if (opts?.select) setSelectedId(log.id);
+  };
+
+  // One window-level listener drives all row navigation: it works from first
+  // load (nothing focused → target is the body), from the table container,
+  // and — with select — while the sheet is open, wherever focus sits. Menus,
+  // editable fields, and other arrow-consuming widgets are left alone.
+  const sheetOpen = selectedId !== null;
+  const handleGlobalKey = (e: KeyboardEvent) => {
+    if (e.defaultPrevented) return;
+    const target = e.target instanceof HTMLElement ? e.target : null;
+    const isBody = e.target === document.body;
+    if (!isBody && !target) return;
+    if (
+      target &&
+      (target.isContentEditable ||
+        /^(INPUT|TEXTAREA|SELECT)$/.test(target.tagName) ||
+        target.closest('[role="menu"], [role="menuitem"], [role="listbox"], [role="option"]'))
+    ) {
+      return;
+    }
+    const inTable = !!target?.closest("[data-logs-scroll]");
+    const isContainer = target?.dataset.logsScroll !== undefined;
+
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      const dir = e.key === "ArrowDown" ? 1 : -1;
+      // Sheet open: arrows page through logs from anywhere.
+      if (sheetOpen) {
+        e.preventDefault();
+        navigate(dir, { select: true });
+      } else if (isBody || inTable) {
+        e.preventDefault();
+        navigate(dir);
+      }
+      return;
+    }
+    if ((e.key === "Enter" || e.key === " ") && !sheetOpen && (isBody || isContainer)) {
+      const log = cursorIndex >= 0 ? orderedLogs[cursorIndex] : undefined;
+      if (log) {
+        e.preventDefault();
+        setSelectedId(log.id);
+      }
+      return;
+    }
+    // Non-modal sheet: Radix only sees Escape while focus is inside it.
+    if (e.key === "Escape" && sheetOpen) setSelectedId(null);
+  };
+  const keyRef = useRef(handleGlobalKey);
+  keyRef.current = handleGlobalKey;
+  useEffect(() => {
+    // On document, not window: `window` is shadowed by the time window here.
+    const listener = (e: KeyboardEvent) => keyRef.current(e);
+    document.addEventListener("keydown", listener);
+    return () => document.removeEventListener("keydown", listener);
+  }, []);
+
   if (status === "loading") {
     return (
       <main className="grid flex-1 place-items-center text-muted-foreground">
@@ -91,6 +172,7 @@ export function LogsView() {
             href="/"
             onClick={() => {
               setSelectedId(null);
+              setActiveId(null);
               setExpandedKeys(new Set());
               setZoomStack([]);
             }}
@@ -109,6 +191,7 @@ export function LogsView() {
             }}
             onRefresh={() => {
               setSelectedId(null);
+              setActiveId(null);
               setExpandedKeys(new Set());
               // Preset entries would resolve against the new fetch time.
               setZoomStack([]);
@@ -169,21 +252,20 @@ export function LogsView() {
           {visibleLogs.length} of {logs!.length} logs
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <Toggle
-            variant="outline"
-            size="sm"
-            pressed={view === "grouped"}
-            onPressedChange={(pressed) => void setView(pressed ? "grouped" : "flat")}
-            aria-label="Group by service"
-          >
-            <ListTree aria-hidden />
+          <label className="flex items-center gap-1.5 text-xs">
+            <Switch
+              checked={view === "grouped"}
+              onCheckedChange={(checked) => void setView(checked ? "grouped" : "flat")}
+              aria-label="Group by service"
+            />
             <span className="max-sm:sr-only">Group by service</span>
-          </Toggle>
+          </label>
           <Separator orientation="vertical" className="h-5" />
           <ToggleGroup
             type="single"
             variant="outline"
             size="sm"
+            spacing={0}
             value={density}
             onValueChange={(value) => {
               if (value === "1" || value === "3") void setDensity(value);
@@ -204,14 +286,16 @@ export function LogsView() {
       </div>
 
       <LogsTable
-        logs={visibleLogs}
+        items={items}
         nowMs={nowMs}
-        view={view}
         density={density}
         sort={sort}
         onSortChange={(next) => void setSort(next)}
         selectedId={selectedId}
         onSelect={(log) => setSelectedId(log.id)}
+        activeId={activeId}
+        onActiveChange={setActiveId}
+        onNavigate={navigate}
         expandedKeys={expandedKeys}
         onToggleGroup={(serviceKey) =>
           setExpandedKeys((keys) => {
@@ -227,6 +311,9 @@ export function LogsView() {
       <LogDetailsSheet
         log={logs?.find((log) => log.id === selectedId) ?? null}
         onClose={() => setSelectedId(null)}
+        onNavigate={(dir) => navigate(dir, { select: true })}
+        hasPrev={orderedLogs.length > 0 && cursorIndex !== 0}
+        hasNext={orderedLogs.length > 0 && cursorIndex !== orderedLogs.length - 1}
       />
     </main>
   );

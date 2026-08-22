@@ -162,6 +162,44 @@ test.describe("keyboard navigation", () => {
     await page.keyboard.press("ArrowDown");
     await expect(rows.nth(5)).toHaveAttribute("data-active", "true");
   });
+
+  test("open sheet pages through logs via arrows and prev/next buttons", async ({ page }) => {
+    const server = await openApp(page);
+    // Default sort is time desc — the table order the sheet navigates.
+    const ordered = [...server.flat()].sort((a, b) => b.timeMs - a.timeMs);
+    const iso = (i: number) => new Date(ordered[i].timeMs).toISOString();
+    const rows = page.locator("[data-log-row]");
+    const sheet = page.getByRole("dialog");
+
+    await rows.nth(0).click();
+    await expect(sheet).toBeVisible();
+    await expect(sheet).toContainText(iso(0));
+    await expect(sheet.getByRole("button", { name: "Previous log" })).toBeDisabled();
+
+    // Arrows keep working while the sheet is open and switch the shown log.
+    await page.keyboard.press("ArrowDown");
+    await expect(sheet).toContainText(iso(1));
+    await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");
+    await expect(sheet.getByRole("button", { name: "Previous log" })).toBeEnabled();
+
+    // Prev/next buttons navigate the same order.
+    await sheet.getByRole("button", { name: "Next log" }).click();
+    await expect(sheet).toContainText(iso(2));
+    await sheet.getByRole("button", { name: "Previous log" }).click();
+    await expect(sheet).toContainText(iso(1));
+    await page.keyboard.press("ArrowUp");
+    await expect(sheet).toContainText(iso(0));
+    await expect(sheet.getByRole("button", { name: "Previous log" })).toBeDisabled();
+
+    // Non-modal: the table behind stays interactive — clicking another row
+    // switches the sheet instead of closing it.
+    await rows.nth(3).click();
+    await expect(sheet).toContainText(iso(3));
+
+    await page.keyboard.press("Escape");
+    await expect(sheet).toBeHidden();
+    await expect(rows.nth(3)).toHaveAttribute("data-active", "true");
+  });
 });
 
 test.describe("grouped view", () => {
@@ -172,7 +210,7 @@ test.describe("grouped view", () => {
     for (const log of logs) counts.set(log.serviceKey, (counts.get(log.serviceKey) ?? 0) + 1);
     const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]);
 
-    await page.getByRole("button", { name: "Group by service" }).click();
+    await page.getByRole("switch", { name: "Group by service" }).click();
     await expect(page).toHaveURL(/view=grouped/);
 
     const headers = page.locator("[data-group-header]");
@@ -347,7 +385,7 @@ test.describe("url state", () => {
 
     await page.locator("[data-time-range-trigger]").click();
     await page.getByRole("menuitem", { name: "Last 1 hour" }).click();
-    await page.getByRole("button", { name: "Group by service" }).click();
+    await page.getByRole("switch", { name: "Group by service" }).click();
     await page.getByRole("button", { name: "Severity" }).click(); // severity.asc
     await page.getByRole("radio", { name: "Expanded rows" }).click();
     await page.getByRole("button", { name: /Error & Fatal/ }).click();
@@ -361,10 +399,7 @@ test.describe("url state", () => {
     await fresh.locator("[data-group-header]").first().waitFor();
 
     await expect(fresh.locator("[data-time-range-trigger]")).toHaveText(/Last 1 hour/);
-    await expect(fresh.getByRole("button", { name: "Group by service" })).toHaveAttribute(
-      "aria-pressed",
-      "true",
-    );
+    await expect(fresh.getByRole("switch", { name: "Group by service" })).toBeChecked();
     await expect(fresh.getByRole("columnheader").first()).toHaveAttribute(
       "aria-sort",
       "ascending",
