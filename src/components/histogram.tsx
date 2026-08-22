@@ -89,7 +89,7 @@ export function Histogram({
   const hoveredBucket = hovered !== null ? buckets[hovered] : null;
 
   return (
-    <div ref={ref} className="relative w-full px-3" data-histogram>
+    <div ref={ref} className="relative mx-3 rounded-md bg-muted/40 px-2 pt-2" data-histogram>
       {width > 0 && (
         <>
           <svg

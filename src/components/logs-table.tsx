@@ -7,9 +7,9 @@
 // it read-only. The keyboard cursor (activeId) lives in LogsView too; this
 // component renders it, reports hover/click, and keeps it scrolled into view.
 
-import { useVirtualizer } from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useVirtualizer, type Range } from "@tanstack/react-virtual";
 import { ArrowDown, ArrowUp, ChevronsUpDown } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useMemo, useRef } from "react";
 import { GroupHeaderRow } from "@/components/group-header-row";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TimeCell } from "@/components/time-cell";
@@ -57,7 +57,10 @@ function SortHeader({
       type="button"
       onClick={() => onSortChange(nextSort(column, sort))}
       className={cn(
-        "inline-flex items-center gap-1 text-left text-xs font-medium",
+        // Bleed into the header row's py-1.5 so the whole cell is clickable.
+        // Single hover treatment: label darkens. No bg change — a per-cell
+        // box would fight the row's muted band.
+        "-my-1.5 flex w-full cursor-pointer items-center gap-1 py-1.5 text-left text-xs font-medium transition-colors",
         active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
       )}
     >
@@ -86,7 +89,7 @@ export function LogsTable({
   activeId,
   onActiveChange,
   onNavigate,
-  expandedKeys,
+  collapsedKeys,
   onToggleGroup,
 }: {
   items: TableItem[];
@@ -99,12 +102,19 @@ export function LogsTable({
   activeId: string | null;
   onActiveChange: (id: string) => void;
   onNavigate: (dir: 1 | -1) => void;
-  expandedKeys: ReadonlySet<string>;
+  collapsedKeys: ReadonlySet<string>;
   onToggleGroup: (serviceKey: string) => void;
 }) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
   const rowHeight = isMobile ? MOBILE_ROW_HEIGHT[density] : ROW_HEIGHT[density];
+  // Sticky group headers: the header governing the topmost visible row is
+  // force-included in the virtual range and rendered position:sticky.
+  const headerIndexes = useMemo(
+    () => items.flatMap((item, index) => (item.type === "header" ? [index] : [])),
+    [items],
+  );
+  const activeStickyIndexRef = useRef(-1);
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
@@ -115,6 +125,18 @@ export function LogsTable({
       return item.type === "header" ? `g:${item.group.serviceKey}` : item.log.id;
     },
     overscan: 10,
+    rangeExtractor: useCallback(
+      (range: Range) => {
+        activeStickyIndexRef.current =
+          headerIndexes.findLast((index) => index <= range.startIndex) ?? -1;
+        const next = new Set([
+          ...(activeStickyIndexRef.current === -1 ? [] : [activeStickyIndexRef.current]),
+          ...defaultRangeExtractor(range),
+        ]);
+        return [...next].sort((a, b) => a - b);
+      },
+      [headerIndexes],
+    ),
   });
 
   const activeItem = activeId
@@ -176,16 +198,23 @@ export function LogsTable({
                 height: virtualItem.size,
               };
               if (item.type === "header") {
+                // The active header pins to the scroll container's top edge;
+                // it's the rowgroup's only in-flow child, so sticky needs no
+                // transform. Solid bg so pinned headers cover rows beneath.
+                const pinned = virtualItem.index === activeStickyIndexRef.current;
                 return (
                   <div
                     key={`g:${item.group.serviceKey}`}
                     role="row"
-                    className="absolute inset-x-0 top-0"
-                    style={style}
+                    className={cn(
+                      "inset-x-0 top-0 z-10 bg-background",
+                      pinned ? "sticky" : "absolute",
+                    )}
+                    style={pinned ? { height: virtualItem.size } : style}
                   >
                     <GroupHeaderRow
                       group={item.group}
-                      expanded={expandedKeys.has(item.group.serviceKey)}
+                      expanded={!collapsedKeys.has(item.group.serviceKey)}
                       onToggle={() => onToggleGroup(item.group.serviceKey)}
                     />
                   </div>

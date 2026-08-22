@@ -39,8 +39,9 @@ export function LogsView() {
   // Selection references the dataset by FlatLog id; refresh invalidates ids,
   // so selection is cleared alongside refresh().
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  // Expanded group keys are ephemeral too — serviceKeys reference the dataset.
-  const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(new Set());
+  // Groups are open by default; collapsed keys are ephemeral too —
+  // serviceKeys reference the dataset.
+  const [collapsedKeys, setCollapsedKeys] = useState<ReadonlySet<string>>(new Set());
   // History of window states replaced by histogram zooms (bucket click or
   // drag-select), so a misclick is one "undo" away. Toolbar changes are
   // deliberate, so they clear the history instead of joining it.
@@ -69,8 +70,8 @@ export function LogsView() {
 
   // Exact table order — the table renders these same items.
   const items = useMemo(
-    () => buildTableItems(visibleLogs, view, sort, expandedKeys),
-    [visibleLogs, view, sort, expandedKeys],
+    () => buildTableItems(visibleLogs, view, sort, collapsedKeys),
+    [visibleLogs, view, sort, collapsedKeys],
   );
   const orderedLogs = useMemo(
     () => items.flatMap((item) => (item.type === "log" ? [item.log] : [])),
@@ -173,7 +174,7 @@ export function LogsView() {
             onClick={() => {
               setSelectedId(null);
               setActiveId(null);
-              setExpandedKeys(new Set());
+              setCollapsedKeys(new Set());
               setZoomStack([]);
             }}
           >
@@ -192,7 +193,7 @@ export function LogsView() {
             onRefresh={() => {
               setSelectedId(null);
               setActiveId(null);
-              setExpandedKeys(new Set());
+              setCollapsedKeys(new Set());
               // Preset entries would resolve against the new fetch time.
               setZoomStack([]);
               refresh();
@@ -246,13 +247,15 @@ export function LogsView() {
         />
       </div>
 
-      {/* Table meta row: result count left, table-scoped controls right. */}
-      <div className="flex items-center gap-2 border-b px-3 py-1.5">
+      {/* Table meta row: result count left, table-scoped controls right.
+          Bordered below; the margin above detaches it from the histogram
+          section so it reads as the table's header strip. */}
+      <div className="mt-3 flex items-center gap-2 border-b px-3 py-1.5">
         <span className="text-xs text-muted-foreground" data-dataset-id={datasetId}>
           {visibleLogs.length} of {logs!.length} logs
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <label className="flex items-center gap-1.5 text-xs">
+          <label className="flex cursor-pointer select-none items-center gap-1.5 text-xs">
             <Switch
               checked={view === "grouped"}
               onCheckedChange={(checked) => void setView(checked ? "grouped" : "flat")}
@@ -272,11 +275,11 @@ export function LogsView() {
             }}
             aria-label="Row density"
           >
-            <ToggleGroupItem value="1" aria-label="Compact rows">
+            <ToggleGroupItem value="1" aria-label="Compact rows" className="text-xs">
               <Rows4 aria-hidden />
               <span className="max-sm:sr-only">Compact</span>
             </ToggleGroupItem>
-            <ToggleGroupItem value="3" aria-label="Expanded rows">
+            <ToggleGroupItem value="3" aria-label="Expanded rows" className="text-xs">
               <Rows2 aria-hidden />
               <span className="max-sm:sr-only">Expanded</span>
             </ToggleGroupItem>
@@ -296,9 +299,9 @@ export function LogsView() {
         activeId={activeId}
         onActiveChange={setActiveId}
         onNavigate={navigate}
-        expandedKeys={expandedKeys}
+        collapsedKeys={collapsedKeys}
         onToggleGroup={(serviceKey) =>
-          setExpandedKeys((keys) => {
+          setCollapsedKeys((keys) => {
             const next = new Set(keys);
             if (next.has(serviceKey)) next.delete(serviceKey);
             else next.add(serviceKey);

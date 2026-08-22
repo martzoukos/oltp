@@ -1,7 +1,8 @@
 // Ordered table items (group headers + log rows), shared by the table
 // renderer and by keyboard/sheet navigation so "next log" means the same
 // thing everywhere: flat = rows sorted by the active sort; grouped =
-// count-desc service groups where only expanded groups contribute rows.
+// count-desc service groups, open by default, where collapsed groups
+// contribute no rows.
 
 import { groupByService, type ServiceGroup } from "@/lib/filter";
 import type { FlatLog } from "@/lib/flatten";
@@ -22,7 +23,7 @@ export function buildTableItems(
   logs: FlatLog[],
   view: "flat" | "grouped",
   sort: SortState,
-  expandedKeys: ReadonlySet<string>,
+  collapsedKeys: ReadonlySet<string>,
 ): TableItem[] {
   const compare = comparator(sort);
   if (view === "flat") {
@@ -30,8 +31,8 @@ export function buildTableItems(
   }
   return groupByService(logs).flatMap((group): TableItem[] => [
     { type: "header", group },
-    ...(expandedKeys.has(group.serviceKey)
-      ? [...group.logs].sort(compare).map((log): TableItem => ({ type: "log", log }))
-      : []),
+    ...(collapsedKeys.has(group.serviceKey)
+      ? []
+      : [...group.logs].sort(compare).map((log): TableItem => ({ type: "log", log }))),
   ]);
 }

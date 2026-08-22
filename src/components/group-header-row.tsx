@@ -25,7 +25,7 @@ export function GroupHeaderRow({
       onClick={onToggle}
       aria-expanded={expanded}
       data-group-header={group.serviceKey}
-      className="flex h-full w-full items-center gap-2 border-b bg-muted/30 px-3 text-left text-sm hover:bg-muted/60"
+      className="flex h-full w-full items-center gap-2 border-b bg-muted/30 px-3 text-left text-xs hover:bg-muted/60"
     >
       <ChevronRight
         className={cn("size-4 shrink-0 text-muted-foreground transition-transform", expanded && "rotate-90")}
