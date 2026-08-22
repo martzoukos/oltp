@@ -314,6 +314,8 @@ export function LogsView() {
         onNavigate={(dir) => navigate(dir, { select: true })}
         hasPrev={orderedLogs.length > 0 && cursorIndex !== 0}
         hasNext={orderedLogs.length > 0 && cursorIndex !== orderedLogs.length - 1}
+        position={cursorIndex >= 0 ? cursorIndex + 1 : null}
+        total={orderedLogs.length}
       />
     </main>
   );

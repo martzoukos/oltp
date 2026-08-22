@@ -174,11 +174,13 @@ test.describe("keyboard navigation", () => {
     await rows.nth(0).click();
     await expect(sheet).toBeVisible();
     await expect(sheet).toContainText(iso(0));
+    await expect(sheet.locator("[data-sheet-position]")).toHaveText(`1 of ${ordered.length}`);
     await expect(sheet.getByRole("button", { name: "Previous log" })).toBeDisabled();
 
     // Arrows keep working while the sheet is open and switch the shown log.
     await page.keyboard.press("ArrowDown");
     await expect(sheet).toContainText(iso(1));
+    await expect(sheet.locator("[data-sheet-position]")).toHaveText(`2 of ${ordered.length}`);
     await expect(rows.nth(1)).toHaveAttribute("aria-selected", "true");
     await expect(sheet.getByRole("button", { name: "Previous log" })).toBeEnabled();
 

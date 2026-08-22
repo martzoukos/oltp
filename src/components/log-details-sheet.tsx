@@ -108,12 +108,16 @@ export function LogDetailsSheet({
   onNavigate,
   hasPrev,
   hasNext,
+  position,
+  total,
 }: {
   log: FlatLog | null;
   onClose: () => void;
   onNavigate: (dir: 1 | -1) => void;
   hasPrev: boolean;
   hasNext: boolean;
+  position: number | null; // 1-based index in the table order; null when the
+  total: number; //            shown log is filtered out of the current view
 }) {
   return (
     // Non-modal: no overlay dimming/blurring the table, and the page behind
@@ -138,6 +142,14 @@ export function LogDetailsSheet({
           <>
             {/* Prev/next: same order as the table's arrow-key navigation. */}
             <div className="absolute top-3 right-11 flex items-center">
+              {position !== null && (
+                <span
+                  className="mr-1 text-xs tabular-nums whitespace-nowrap text-muted-foreground"
+                  data-sheet-position
+                >
+                  {position} of {total}
+                </span>
+              )}
               <Button
                 variant="ghost"
                 size="icon-sm"
@@ -158,7 +170,7 @@ export function LogDetailsSheet({
               </Button>
             </div>
             <SheetHeader className="border-b">
-              <SheetTitle className="flex flex-wrap items-center gap-2 pr-24 text-sm">
+              <SheetTitle className="flex flex-wrap items-center gap-2 pr-44 text-sm">
                 <SeverityBadge
                   severityNumber={log.severityNumber}
                   severityText={log.severityText}
