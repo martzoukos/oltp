@@ -1,0 +1,54 @@
+/* Design tokens — the single reskin surface. Components consume semantic
+ * tokens only; edit values here to retheme the app.
+ *
+ * Severity palette (dash0-style groups): validated for adjacent-pair CVD and
+ * normal-vision separation in both modes (dataviz six-checks validator, stack
+ * order error→warn→info→trace→unknown, surfaces #ffffff / #0a0a0a). Gray for
+ * trace/unknown is the observability convention, and every colored mark is
+ * paired with a text label (legend chips, badges), never color alone.
+ *
+ * -ink variants are text-safe (≥4.5:1 on the mode's surface) for badge and
+ * label text; the base value is the mark color for bars and dots.
+ */
+
+:root {
+  --severity-error: #d03b3b;
+  --severity-warn: #eda100;
+  --severity-info: #2a78d6;
+  --severity-trace: #6e6c66;
+  --severity-unknown: #aeaca5;
+
+  --severity-error-ink: #a92e2e;
+  --severity-warn-ink: #8a5f00;
+  --severity-info-ink: #1c5cab;
+  --severity-trace-ink: #52514e;
+  --severity-unknown-ink: #6e6c66;
+}
+
+.dark {
+  --severity-error: #e5484d;
+  --severity-warn: #fab219;
+  --severity-info: #3987e5;
+  --severity-trace: #898781;
+  --severity-unknown: #52514e;
+
+  --severity-error-ink: #ef8585;
+  --severity-warn-ink: #fab219;
+  --severity-info-ink: #6da7ec;
+  --severity-trace-ink: #a5a39c;
+  --severity-unknown-ink: #898781;
+}
+
+@theme inline {
+  --color-severity-error: var(--severity-error);
+  --color-severity-warn: var(--severity-warn);
+  --color-severity-info: var(--severity-info);
+  --color-severity-trace: var(--severity-trace);
+  --color-severity-unknown: var(--severity-unknown);
+
+  --color-severity-error-ink: var(--severity-error-ink);
+  --color-severity-warn-ink: var(--severity-warn-ink);
+  --color-severity-info-ink: var(--severity-info-ink);
+  --color-severity-trace-ink: var(--severity-trace-ink);
+  --color-severity-unknown-ink: var(--severity-unknown-ink);
+}
