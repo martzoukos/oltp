@@ -7,8 +7,6 @@ TypeScript. Fetches from the take-home OTLP logs API, flattens the nested
 resource → scope → record hierarchy client-side, and renders a virtualized,
 filterable, deep-linkable log exploration UI.
 
-![Log viewer](docs/screenshot.png)
-
 ## Run it
 
 ```bash
