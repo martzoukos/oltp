@@ -51,9 +51,10 @@ export function LogsProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const requestId = ++generation.current;
+    const controller = new AbortController();
     (async () => {
       try {
-        const response = await fetch(LOGS_API_URL);
+        const response = await fetch(LOGS_API_URL, { signal: controller.signal });
         if (!response.ok) throw new Error(`API responded ${response.status}`);
         const payload = (await response.json()) as LogsPayload;
         const logs = flatten(payload);
@@ -61,7 +62,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
         setState({ status: "ready", logs, error: null, fetchedAtMs: Date.now() });
         setDatasetId((id) => id + 1);
       } catch (err) {
-        if (generation.current !== requestId) return;
+        if (controller.signal.aborted || generation.current !== requestId) return;
         setState({
           status: "error",
           logs: null,
@@ -70,6 +71,7 @@ export function LogsProvider({ children }: { children: ReactNode }) {
         });
       }
     })();
+    return () => controller.abort();
   }, [reloadToken]);
 
   const refresh = useCallback(() => {

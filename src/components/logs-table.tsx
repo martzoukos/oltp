@@ -19,6 +19,7 @@ import { useMemo, useRef } from "react";
 import { GroupHeaderRow } from "@/components/group-header-row";
 import { SeverityBadge } from "@/components/severity-badge";
 import { TimeCell } from "@/components/time-cell";
+import { useIsMobile } from "@/hooks/use-is-mobile";
 import { groupByService } from "@/lib/filter";
 import type { FlatLog } from "@/lib/flatten";
 import type { SortState } from "@/lib/url-state";
@@ -39,6 +40,8 @@ const columns = helper.columns([
 
 const ROW_GRID = "grid grid-cols-[7rem_6.5rem_1fr] gap-x-3 px-3";
 const ROW_HEIGHT: Record<"1" | "3", number> = { "1": 36, "3": 68 };
+// Stacked two-line mobile rows: badge + time on line one, body below.
+const MOBILE_ROW_HEIGHT: Record<"1" | "3", number> = { "1": 56, "3": 92 };
 const GROUP_HEADER_HEIGHT = 40;
 
 type SortColumn = "time" | "severity";
@@ -155,7 +158,8 @@ export function LogsTable({
   }, [view, sortedRows, logs, sort, expandedKeys]);
 
   const scrollRef = useRef<HTMLDivElement>(null);
-  const rowHeight = ROW_HEIGHT[density];
+  const isMobile = useIsMobile();
+  const rowHeight = isMobile ? MOBILE_ROW_HEIGHT[density] : ROW_HEIGHT[density];
   const virtualizer = useVirtualizer({
     count: items.length,
     getScrollElement: () => scrollRef.current,
@@ -170,9 +174,10 @@ export function LogsTable({
 
   return (
     <div role="table" aria-label="Log records" className="flex min-h-0 flex-1 flex-col">
+      {/* On mobile the sort control moves to the toolbar dropdown. */}
       <div
         role="row"
-        className={cn(ROW_GRID, "items-center border-b bg-muted/40 py-1.5")}
+        className={cn(ROW_GRID, "items-center border-b bg-muted/40 py-1.5 max-sm:hidden")}
       >
         <div role="columnheader" aria-sort={ariaSort("severity", sort)}>
           <SortHeader column="severity" label="Severity" sort={sort} onSortChange={onSortChange} />
@@ -219,39 +224,72 @@ export function LogsTable({
                 );
               }
               const log = item.log;
+              const bodyClamp = density === "1" ? "line-clamp-1" : "line-clamp-3";
               return (
                 <div
                   key={log.id}
                   role="row"
                   data-log-row
+                  data-severity={log.severityNumber}
+                  tabIndex={0}
                   aria-selected={selectedId === log.id}
                   onClick={() => onSelect(log)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSelect(log);
+                    }
+                  }}
                   className={cn(
-                    ROW_GRID,
-                    "absolute inset-x-0 top-0 cursor-pointer items-start border-b py-2 hover:bg-accent/60",
+                    isMobile ? "flex flex-col gap-1 px-3" : cn(ROW_GRID, "items-start"),
+                    "absolute inset-x-0 top-0 cursor-pointer border-b py-2 hover:bg-accent/60 focus-visible:bg-accent/60 focus-visible:outline-none",
                     selectedId === log.id && "bg-accent",
                   )}
                   style={style}
                 >
-                  <div role="cell">
-                    <SeverityBadge
-                      severityNumber={log.severityNumber}
-                      severityText={log.severityText}
-                    />
-                  </div>
-                  <div role="cell">
-                    <TimeCell timeMs={log.timeMs} nowMs={nowMs} />
-                  </div>
-                  <div
-                    role="cell"
-                    data-log-body
-                    className={cn(
-                      "min-w-0 font-mono text-xs leading-5 whitespace-pre-wrap break-all",
-                      density === "1" ? "line-clamp-1" : "line-clamp-3",
-                    )}
-                  >
-                    {log.body}
-                  </div>
+                  {isMobile ? (
+                    <>
+                      <div role="cell" data-mobile-row-meta className="flex items-center gap-2">
+                        <SeverityBadge
+                          severityNumber={log.severityNumber}
+                          severityText={log.severityText}
+                        />
+                        <TimeCell timeMs={log.timeMs} nowMs={nowMs} />
+                      </div>
+                      <div
+                        role="cell"
+                        data-log-body
+                        className={cn(
+                          "min-w-0 font-mono text-xs leading-5 whitespace-pre-wrap break-all",
+                          bodyClamp,
+                        )}
+                      >
+                        {log.body}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div role="cell">
+                        <SeverityBadge
+                          severityNumber={log.severityNumber}
+                          severityText={log.severityText}
+                        />
+                      </div>
+                      <div role="cell">
+                        <TimeCell timeMs={log.timeMs} nowMs={nowMs} />
+                      </div>
+                      <div
+                        role="cell"
+                        data-log-body
+                        className={cn(
+                          "min-w-0 font-mono text-xs leading-5 whitespace-pre-wrap break-all",
+                          bodyClamp,
+                        )}
+                      >
+                        {log.body}
+                      </div>
+                    </>
+                  )}
                 </div>
               );
             })}

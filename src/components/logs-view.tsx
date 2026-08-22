@@ -90,6 +90,8 @@ export function LogsView() {
           onWindowStateChange={(state) => void setWindowState(state)}
           density={density}
           onDensityChange={(value) => void setDensity(value)}
+          sort={sort}
+          onSortChange={(next) => void setSort(next)}
           onRefresh={() => {
             setSelectedId(null);
             setExpandedKeys(new Set());

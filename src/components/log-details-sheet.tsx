@@ -96,7 +96,8 @@ export function LogDetailsSheet({
     <Sheet open={log !== null} onOpenChange={(open) => !open && onClose()}>
       <SheetContent
         side="right"
-        className="flex w-full flex-col gap-0 overflow-y-auto sm:max-w-xl"
+        // the defaults are data-[side=right]-scoped, so overrides must be too
+        className="flex flex-col gap-0 overflow-y-auto data-[side=right]:w-full data-[side=right]:sm:max-w-xl"
       >
         {log && (
           <>

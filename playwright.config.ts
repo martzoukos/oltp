@@ -18,13 +18,16 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      use: { ...devices["iPhone 14"] },
+      use: { ...devices["Pixel 7"] },
       grep: /@mobile/,
     },
   ],
+  // Production build: dev-mode StrictMode double-fetches would break the
+  // fixture request sequencing, and prod is the artifact worth testing.
   webServer: {
-    command: "npm run dev",
+    command: "npm run build && npm run start",
     url: "http://localhost:3000",
     reuseExistingServer: !process.env.CI,
+    timeout: 180_000,
   },
 });

@@ -3,9 +3,11 @@
 // Toolbar: time range picker (presets + custom absolute range + prev/next
 // arrows that shift by the window's own length), density toggle, refresh.
 
-import { ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
+import { ArrowUpDown, ChevronDown, ChevronLeft, ChevronRight, RefreshCw } from "lucide-react";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/theme-toggle";
+import type { SortState } from "@/lib/url-state";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -139,12 +141,51 @@ function TimeRangePicker({
   );
 }
 
+const SORT_OPTIONS: { value: SortState; label: string }[] = [
+  { value: "time.desc", label: "Newest first" },
+  { value: "time.asc", label: "Oldest first" },
+  { value: "severity.desc", label: "Most severe first" },
+  { value: "severity.asc", label: "Least severe first" },
+];
+
+// Mobile-only: column headers are hidden below sm, so sorting moves here.
+function MobileSortMenu({
+  sort,
+  onSortChange,
+}: {
+  sort: SortState;
+  onSortChange: (sort: SortState) => void;
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild className="sm:hidden">
+        <Button variant="outline" size="icon-sm" aria-label="Sort logs">
+          <ArrowUpDown aria-hidden />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        {SORT_OPTIONS.map((option) => (
+          <DropdownMenuItem
+            key={option.value}
+            onSelect={() => onSortChange(option.value)}
+            className={option.value === sort ? "font-medium" : undefined}
+          >
+            {option.label}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function Toolbar({
   windowState,
   nowMs,
   onWindowStateChange,
   density,
   onDensityChange,
+  sort,
+  onSortChange,
   onRefresh,
   children,
 }: {
@@ -153,8 +194,10 @@ export function Toolbar({
   onWindowStateChange: (state: WindowState) => void;
   density: "1" | "3";
   onDensityChange: (density: "1" | "3") => void;
+  sort: SortState;
+  onSortChange: (sort: SortState) => void;
   onRefresh: () => void;
-  children?: React.ReactNode; // extra controls (view toggle, theme) slot in here
+  children?: React.ReactNode; // extra controls (view toggle) slot in here
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -182,9 +225,11 @@ export function Toolbar({
             3L
           </ToggleGroupItem>
         </ToggleGroup>
+        <MobileSortMenu sort={sort} onSortChange={onSortChange} />
+        <ThemeToggle />
         <Button variant="outline" size="sm" onClick={onRefresh}>
           <RefreshCw aria-hidden />
-          Refresh
+          <span className="max-sm:sr-only">Refresh</span>
         </Button>
       </div>
     </div>
