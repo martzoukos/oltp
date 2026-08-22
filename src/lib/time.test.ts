@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_PRESET,
+  formatDuration,
   presetWindow,
   resolveWindow,
   shiftWindow,
@@ -27,6 +28,20 @@ describe("timeAgo", () => {
     expect(timeAgo(NOW - 500, NOW)).toBe("now");
     // Client clock behind the server: never "in 3s".
     expect(timeAgo(NOW + 3_000, NOW)).toBe("now");
+  });
+});
+
+describe("formatDuration", () => {
+  it("uses the largest unit with a remainder, keeping hours up to 47h", () => {
+    expect(formatDuration(30_000)).toBe("30s");
+    expect(formatDuration(90_000)).toBe("1m 30s");
+    expect(formatDuration(30 * MINUTE)).toBe("30m");
+    expect(formatDuration(HOUR + 30 * MINUTE)).toBe("1h 30m");
+    // Matches the "Last 24 hours" preset — never "1d".
+    expect(formatDuration(DAY)).toBe("24h");
+    expect(formatDuration(36 * HOUR)).toBe("36h");
+    expect(formatDuration(2 * DAY)).toBe("2d");
+    expect(formatDuration(7 * DAY + 6 * HOUR)).toBe("7d 6h");
   });
 });
 

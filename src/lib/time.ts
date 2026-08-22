@@ -52,6 +52,18 @@ export function shiftWindow(
   return { kind: "fixed", fromMs: fromMs + delta, toMs: toMs + delta };
 }
 
+// Compact window-length label for the histogram span indicator: "45s", "30m",
+// "1h 30m", "36h", "7d". Hours run up to 47h so the label agrees with the
+// "Last 24 hours" preset instead of flipping to "1d".
+export function formatDuration(ms: number): string {
+  const pair = (big: number, bigUnit: string, small: number, smallUnit: string) =>
+    small > 0 ? `${big}${bigUnit} ${small}${smallUnit}` : `${big}${bigUnit}`;
+  if (ms >= 2 * DAY) return pair(Math.floor(ms / DAY), "d", Math.floor((ms % DAY) / HOUR), "h");
+  if (ms >= HOUR) return pair(Math.floor(ms / HOUR), "h", Math.floor((ms % HOUR) / MINUTE), "m");
+  if (ms >= MINUTE) return pair(Math.floor(ms / MINUTE), "m", Math.floor((ms % MINUTE) / 1000), "s");
+  return `${Math.max(1, Math.floor(ms / 1000))}s`;
+}
+
 export function timeAgo(timeMs: number, nowMs: number): string {
   const deltaMs = nowMs - timeMs;
   // Sub-second deltas and small future skew (client clock behind the server)

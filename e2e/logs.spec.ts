@@ -285,6 +285,44 @@ test.describe("histogram & time window", () => {
     expect(Number(next[2]) - Number(next[1])).toBe(3_600_000);
   });
 
+  test("span indicator tracks the window length and undo steps back through zooms", async ({
+    page,
+  }) => {
+    await openApp(page);
+    const span = page.locator("[data-window-span]");
+    const back = page.getByRole("button", { name: "Undo zoom" });
+
+    // default 24h preset — indicator visible, nothing to undo yet
+    await expect(span).toHaveText("24h");
+    await expect(back).toBeHidden();
+
+    // first zoom: one 30m bucket
+    await page.locator("[data-histogram-bar] rect").first().click();
+    await expect(page).toHaveURL(/window=\d+-\d+/);
+    await expect(span).toHaveText("30m");
+    await expect(back).toBeVisible();
+
+    // second zoom: a 30m window buckets at 30s
+    await page.locator("[data-histogram-bar] rect").first().click();
+    await expect(span).toHaveText("30s");
+
+    // undo unwinds one zoom at a time, ending back on the live preset
+    await back.click();
+    await expect(span).toHaveText("30m");
+    await back.click();
+    await expect(span).toHaveText("24h");
+    await expect(page).not.toHaveURL(/window=\d+-\d+/);
+    await expect(back).toBeHidden();
+
+    // a toolbar window change is deliberate — it clears the undo history
+    await page.locator("[data-histogram-bar] rect").first().click();
+    await expect(back).toBeVisible();
+    await page.locator("[data-time-range-trigger]").click();
+    await page.getByRole("menuitem", { name: "Last 1 hour" }).click();
+    await expect(span).toHaveText("1h");
+    await expect(back).toBeHidden();
+  });
+
   test("refresh pulls a new dataset", async ({ page }) => {
     const server = await openApp(page, ["logs.json", "logs-refresh.json"]);
     const firstTotal = server.flat(0).length;

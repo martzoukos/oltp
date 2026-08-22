@@ -3,7 +3,7 @@
 // Page shell: dataset + URL state wiring for toolbar, histogram, legend
 // filter, table, and detail sheet.
 
-import { ListTree, Rows2, Rows4 } from "lucide-react";
+import { ListTree, Rows2, Rows4, Undo2 } from "lucide-react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
@@ -17,7 +17,7 @@ import { LogsTable } from "@/components/logs-table";
 import { SeverityLegend } from "@/components/severity-legend";
 import { MobileSortMenu, Toolbar } from "@/components/toolbar";
 import { useLogs } from "@/components/logs-provider";
-import { resolveWindow } from "@/lib/time";
+import { formatDuration, resolveWindow, type WindowState } from "@/lib/time";
 import {
   densityParser,
   severitiesParser,
@@ -40,6 +40,10 @@ export function LogsView() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   // Expanded group keys are ephemeral too — serviceKeys reference the dataset.
   const [expandedKeys, setExpandedKeys] = useState<ReadonlySet<string>>(new Set());
+  // History of window states replaced by histogram zooms (bucket click or
+  // drag-select), so a misclick is one "undo" away. Toolbar changes are
+  // deliberate, so they clear the history instead of joining it.
+  const [zoomStack, setZoomStack] = useState<WindowState[]>([]);
 
   // Preset windows anchor to fetch time — the dataset spans the 24h ending there.
   const nowMs = fetchedAtMs ?? 0;
@@ -88,6 +92,7 @@ export function LogsView() {
             onClick={() => {
               setSelectedId(null);
               setExpandedKeys(new Set());
+              setZoomStack([]);
             }}
           >
             Logs
@@ -98,10 +103,15 @@ export function LogsView() {
           <Toolbar
             windowState={windowState}
             nowMs={nowMs}
-            onWindowStateChange={(state) => void setWindowState(state)}
+            onWindowStateChange={(state) => {
+              setZoomStack([]);
+              void setWindowState(state);
+            }}
             onRefresh={() => {
               setSelectedId(null);
               setExpandedKeys(new Set());
+              // Preset entries would resolve against the new fetch time.
+              setZoomStack([]);
               refresh();
             }}
           />
@@ -109,12 +119,42 @@ export function LogsView() {
       </header>
 
       <div className="border-b">
+        {/* Span indicator: the histogram rescales silently on zoom, so its
+            current extent must be legible without decoding the date range. */}
+        <div className="flex h-6 items-center gap-1 px-3 pt-1.5">
+          <span
+            className="text-xs tabular-nums text-muted-foreground"
+            data-window-span
+            title="Histogram window length"
+          >
+            {formatDuration(window.toMs - window.fromMs)}
+          </span>
+          {zoomStack.length > 0 && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-5 text-muted-foreground"
+              aria-label="Undo zoom"
+              onClick={() => {
+                const previous = zoomStack[zoomStack.length - 1];
+                setZoomStack((stack) => stack.slice(0, -1));
+                void setWindowState(previous);
+              }}
+            >
+              <Undo2 aria-hidden />
+            </Button>
+          )}
+        </div>
         <Histogram
           logs={visibleLogs}
           window={window}
-          onWindowChange={(next) =>
-            void setWindowState({ kind: "fixed", fromMs: next.fromMs, toMs: next.toMs })
-          }
+          onWindowChange={(next) => {
+            // Full-width drags re-select the current window; no-op, don't
+            // record an undo step for it.
+            if (next.fromMs === window.fromMs && next.toMs === window.toMs) return;
+            setZoomStack((stack) => [...stack, windowState]);
+            void setWindowState({ kind: "fixed", fromMs: next.fromMs, toMs: next.toMs });
+          }}
         />
         <SeverityLegend
           logs={windowLogs}
