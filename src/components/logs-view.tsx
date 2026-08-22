@@ -8,6 +8,7 @@ import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { LogDetailsSheet } from "@/components/log-details-sheet";
 import { LogsTable } from "@/components/logs-table";
 import { useLogs } from "@/components/logs-provider";
 import { resolveWindow } from "@/lib/time";
@@ -113,6 +114,12 @@ export function LogsView() {
         onSortChange={(next) => void setSort(next)}
         selectedId={selectedId}
         onSelect={(log) => setSelectedId(log.id)}
+      />
+      {/* Selection references the dataset, not the filtered view: the sheet
+          stays open even if its log is filtered out of the table. */}
+      <LogDetailsSheet
+        log={logs?.find((log) => log.id === selectedId) ?? null}
+        onClose={() => setSelectedId(null)}
       />
     </main>
   );
