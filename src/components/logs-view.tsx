@@ -3,11 +3,13 @@
 // Page shell: dataset + URL state wiring for toolbar, histogram, legend
 // filter, table, and detail sheet.
 
-import { List, ListTree, Rows2, Rows4 } from "lucide-react";
+import { ListTree, Rows2, Rows4 } from "lucide-react";
 import Link from "next/link";
 import { useQueryState } from "nuqs";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Toggle } from "@/components/ui/toggle";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Histogram } from "@/components/histogram";
 import { LogDetailsSheet } from "@/components/log-details-sheet";
@@ -127,25 +129,17 @@ export function LogsView() {
           {visibleLogs.length} of {logs!.length} logs
         </span>
         <div className="ml-auto flex items-center gap-2">
-          <ToggleGroup
-            type="single"
+          <Toggle
             variant="outline"
             size="sm"
-            value={view}
-            onValueChange={(value) => {
-              if (value === "flat" || value === "grouped") void setView(value);
-            }}
-            aria-label="View mode"
+            pressed={view === "grouped"}
+            onPressedChange={(pressed) => void setView(pressed ? "grouped" : "flat")}
+            aria-label="Group by service"
           >
-            <ToggleGroupItem value="flat" aria-label="Flat view">
-              <List aria-hidden />
-              <span className="max-sm:sr-only">Flat</span>
-            </ToggleGroupItem>
-            <ToggleGroupItem value="grouped" aria-label="Group by service">
-              <ListTree aria-hidden />
-              <span className="max-sm:sr-only">Grouped</span>
-            </ToggleGroupItem>
-          </ToggleGroup>
+            <ListTree aria-hidden />
+            <span className="max-sm:sr-only">Group by service</span>
+          </Toggle>
+          <Separator orientation="vertical" className="h-5" />
           <ToggleGroup
             type="single"
             variant="outline"
@@ -154,15 +148,15 @@ export function LogsView() {
             onValueChange={(value) => {
               if (value === "1" || value === "3") void setDensity(value);
             }}
-            aria-label="Body density"
+            aria-label="Row density"
           >
-            <ToggleGroupItem value="1" aria-label="1 line per row">
+            <ToggleGroupItem value="1" aria-label="Compact rows">
               <Rows4 aria-hidden />
-              <span className="max-sm:sr-only">1 line</span>
+              <span className="max-sm:sr-only">Compact</span>
             </ToggleGroupItem>
-            <ToggleGroupItem value="3" aria-label="3 lines per row">
+            <ToggleGroupItem value="3" aria-label="Expanded rows">
               <Rows2 aria-hidden />
-              <span className="max-sm:sr-only">3 lines</span>
+              <span className="max-sm:sr-only">Expanded</span>
             </ToggleGroupItem>
           </ToggleGroup>
           <MobileSortMenu sort={sort} onSortChange={(next) => void setSort(next)} />

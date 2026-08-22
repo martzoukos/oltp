@@ -59,13 +59,13 @@ test.describe("logs table", () => {
     const height1 = (await row.boundingBox())!.height;
     await expect(rowBody(row)).toHaveCSS("-webkit-line-clamp", "1");
 
-    await page.getByRole("radio", { name: "3 lines per row" }).click();
+    await page.getByRole("radio", { name: "Expanded rows" }).click();
     await expect(rowBody(row)).toHaveCSS("-webkit-line-clamp", "3");
     await expect(page).toHaveURL(/density=3/);
     const height3 = (await row.boundingBox())!.height;
     expect(height3).toBeGreaterThan(height1);
 
-    await page.getByRole("radio", { name: "1 line per row" }).click();
+    await page.getByRole("radio", { name: "Compact rows" }).click();
     await expect(rowBody(row)).toHaveCSS("-webkit-line-clamp", "1");
   });
 
@@ -172,7 +172,7 @@ test.describe("grouped view", () => {
     for (const log of logs) counts.set(log.serviceKey, (counts.get(log.serviceKey) ?? 0) + 1);
     const ordered = [...counts.entries()].sort((a, b) => b[1] - a[1]);
 
-    await page.getByRole("radio", { name: "Group by service" }).click();
+    await page.getByRole("button", { name: "Group by service" }).click();
     await expect(page).toHaveURL(/view=grouped/);
 
     const headers = page.locator("[data-group-header]");
@@ -309,9 +309,9 @@ test.describe("url state", () => {
 
     await page.locator("[data-time-range-trigger]").click();
     await page.getByRole("menuitem", { name: "Last 1 hour" }).click();
-    await page.getByRole("radio", { name: "Group by service" }).click();
+    await page.getByRole("button", { name: "Group by service" }).click();
     await page.getByRole("button", { name: "Severity" }).click(); // severity.asc
-    await page.getByRole("radio", { name: "3 lines per row" }).click();
+    await page.getByRole("radio", { name: "Expanded rows" }).click();
     await page.getByRole("button", { name: /Error & Fatal/ }).click();
     await expect(page).toHaveURL(/severities=error/);
     await expect(page).toHaveURL(/density=3/);
@@ -323,15 +323,15 @@ test.describe("url state", () => {
     await fresh.locator("[data-group-header]").first().waitFor();
 
     await expect(fresh.locator("[data-time-range-trigger]")).toHaveText(/Last 1 hour/);
-    await expect(fresh.getByRole("radio", { name: "Group by service" })).toHaveAttribute(
-      "data-state",
-      "on",
+    await expect(fresh.getByRole("button", { name: "Group by service" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
     );
     await expect(fresh.getByRole("columnheader").first()).toHaveAttribute(
       "aria-sort",
       "ascending",
     );
-    await expect(fresh.getByRole("radio", { name: "3 lines per row" })).toHaveAttribute(
+    await expect(fresh.getByRole("radio", { name: "Expanded rows" })).toHaveAttribute(
       "data-state",
       "on",
     );
