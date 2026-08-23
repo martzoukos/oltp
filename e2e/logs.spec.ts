@@ -370,6 +370,30 @@ test.describe("histogram & time window", () => {
     expect(Number(next[2]) - Number(next[1])).toBe(3_600_000);
   });
 
+  test("left/right arrow keys shift the window and clear zoom undo", async ({ page }) => {
+    await serveFixtures(page, ["logs.json"]);
+    await page.goto("/?window=1h");
+    await page.locator("[data-log-row]").first().waitFor();
+
+    await page.keyboard.press("ArrowLeft");
+    await expect(page).toHaveURL(/window=\d+-\d+/);
+    const prev = /window=(\d+)-(\d+)/.exec(page.url())!;
+    expect(Number(prev[2]) - Number(prev[1])).toBe(3_600_000);
+
+    // right shifts back to the adjacent window of the same length
+    await page.keyboard.press("ArrowRight");
+    await expect(page).toHaveURL(new RegExp(`window=${prev[2]}-`));
+    const next = /window=(\d+)-(\d+)/.exec(page.url())!;
+    expect(Number(next[2]) - Number(next[1])).toBe(3_600_000);
+
+    // a keyboard shift is deliberate — it clears the zoom-undo history
+    const back = page.getByRole("button", { name: "Undo zoom" });
+    await page.locator("[data-histogram-bar] rect").first().click();
+    await expect(back).toBeVisible();
+    await page.keyboard.press("ArrowRight");
+    await expect(back).toBeHidden();
+  });
+
   test("span indicator tracks the window length and undo steps back through zooms", async ({
     page,
   }) => {

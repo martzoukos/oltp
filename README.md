@@ -49,8 +49,9 @@ request, so fixtures are the only route to deterministic UI tests.
   header and scope shows as an instrumentation footer. Copy any id, the body,
   or the whole record as JSON. Previous/Next buttons and arrow keys page
   through logs in table order, with a "3 of 325" position counter.
-- **Keyboard nav** — arrow keys move the row cursor from first load,
-  Enter/Space opens the sheet, Escape closes it.
+- **Keyboard nav** — up/down move the row cursor from first load, left/right
+  shift the time window by its own length (same as the toolbar prev/next
+  arrows), Enter/Space opens the sheet, Escape closes it.
 - **URL state** — window, view, sort, density, and severity filter live in the
   URL (nuqs). Any view is shareable as a link.
 - **Light/dark** — system default plus a toggle, applied pre-hydration.
