@@ -18,7 +18,7 @@ import { SeverityLegend } from "@/components/severity-legend";
 import { MobileSortMenu, Toolbar } from "@/components/toolbar";
 import { useLogs } from "@/components/logs-provider";
 import { buildTableItems } from "@/lib/table-items";
-import { formatDuration, resolveWindow, type WindowState } from "@/lib/time";
+import { formatDuration, resolveWindow, shiftWindow, type WindowState } from "@/lib/time";
 import {
   densityParser,
   severitiesParser,
@@ -129,6 +129,16 @@ export function LogsView() {
         e.preventDefault();
         navigate(dir);
       }
+      return;
+    }
+    // Left/right shift the time window by its own length, mirroring the
+    // toolbar's prev/next arrows — a deliberate move, so it clears zoom undo.
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && (isBody || inTable)) {
+      e.preventDefault();
+      setZoomStack([]);
+      void setWindowState(
+        shiftWindow(windowState, e.key === "ArrowLeft" ? "prev" : "next", nowMs),
+      );
       return;
     }
     if ((e.key === "Enter" || e.key === " ") && !sheetOpen && (isBody || isContainer)) {
