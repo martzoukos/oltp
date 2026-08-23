@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { FlatLog } from "./flatten";
-import { bucketize, chooseBucketSize, NICE_BUCKETS_MS, pixelRangeToWindow } from "./histogram";
+import {
+  bucketize,
+  chooseBucketSize,
+  countTicks,
+  NICE_BUCKETS_MS,
+  pixelRangeToWindow,
+} from "./histogram";
 
 const SECOND = 1000;
 const MINUTE = 60 * SECOND;
@@ -84,6 +90,34 @@ describe("bucketize", () => {
     expect(buckets).toHaveLength(60);
     expect(buckets.filter((b) => b.total === 0)).toHaveLength(59);
     expect(buckets[59].startMs).toBe(window.toMs - 10 * SECOND);
+  });
+});
+
+describe("countTicks", () => {
+  it("returns clean integer steps covering up to the max count", () => {
+    expect(countTicks(1)).toEqual([1]);
+    expect(countTicks(3)).toEqual([1, 2, 3]);
+    expect(countTicks(7)).toEqual([5]);
+    expect(countTicks(30)).toEqual([10, 20, 30]);
+    expect(countTicks(100)).toEqual([50, 100]);
+    expect(countTicks(1234)).toEqual([500, 1000]);
+  });
+
+  it("never emits fractional or zero ticks", () => {
+    for (const max of [1, 2, 4, 9, 17, 55, 999, 12345]) {
+      const ticks = countTicks(max);
+      expect(ticks.length).toBeGreaterThan(0);
+      expect(ticks.length).toBeLessThanOrEqual(4);
+      for (const tick of ticks) {
+        expect(Number.isInteger(tick)).toBe(true);
+        expect(tick).toBeGreaterThan(0);
+        expect(tick).toBeLessThanOrEqual(max);
+      }
+    }
+  });
+
+  it("returns no ticks when there is no data", () => {
+    expect(countTicks(0)).toEqual([]);
   });
 });
 

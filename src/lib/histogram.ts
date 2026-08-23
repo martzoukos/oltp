@@ -74,6 +74,21 @@ export function bucketize(logs: FlatLog[], window: TimeWindow): Histogram {
   return { bucketMs, buckets };
 }
 
+// Clean y-axis tick values (1/2/5 × 10^n steps, ~3 ticks) for a histogram
+// whose tallest bar is maxCount. Excludes 0 — the baseline carries it.
+export function countTicks(maxCount: number): number[] {
+  if (maxCount <= 0) return [];
+  const raw = maxCount / 3;
+  const pow = 10 ** Math.floor(Math.log10(raw));
+  const step = Math.max(
+    1,
+    [1, 2, 5, 10].map((m) => m * pow).find((s) => s >= raw)!,
+  );
+  const ticks: number[] = [];
+  for (let value = step; value <= maxCount; value += step) ticks.push(value);
+  return ticks;
+}
+
 // Maps a horizontal drag over the chart to a time range snapped outward to
 // bucket boundaries. A sub-bucket drag selects the single bucket under it,
 // so a click and a tiny drag behave identically.

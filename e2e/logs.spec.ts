@@ -289,6 +289,14 @@ test.describe("histogram & time window", () => {
     expect(Number(match[2]) - Number(match[1])).toBe(30 * 60_000);
   });
 
+  test("y axis shows count gridlines with clean labels", async ({ page }) => {
+    await openApp(page);
+    const ticks = page.locator("[data-y-tick]");
+    expect(await ticks.count()).toBeGreaterThan(0);
+    const labels = await ticks.locator("text").allTextContents();
+    for (const label of labels) expect(label).toMatch(/^\d+(\.\d)?[kM]?$/);
+  });
+
   test("dragging across the histogram selects a time range", async ({ page }) => {
     const server = await openApp(page);
     const svg = page.locator("[data-histogram] svg");

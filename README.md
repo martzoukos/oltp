@@ -30,9 +30,9 @@ request, so fixtures are the only route to deterministic UI tests.
 
 - **Histogram** — hand-rolled SVG, stacked by severity group. Click a bar to
   zoom to that bucket; drag to select a range; hover for per-severity counts.
-  Bucket sizes snap to nice units targeting ≤60 bars per window. A chip above
-  the chart shows the window length, with an undo button that steps back
-  through zooms.
+  Bucket sizes snap to nice units targeting ≤60 bars per window, and a y axis
+  shows count gridlines at clean steps. A chip above the chart shows the
+  window length, with an undo button that steps back through zooms.
 - **Severity filtering** — the legend chips under the histogram are the filter
   (dash0 pattern): Error & Fatal, Warn, Info, Trace & Debug, Unknown. Chips
   filter bars and rows together.

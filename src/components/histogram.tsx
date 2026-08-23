@@ -3,10 +3,11 @@
 // Hand-rolled SVG stacked histogram. Identical in flat and grouped modes:
 // stacked by severity legend group, global across services. Click selects a
 // bucket; drag selects a snapped range (URL written once on pointer-up, the
-// in-progress drag is purely local state).
+// in-progress drag is purely local state). A left gutter carries the y-axis
+// count labels; all pointer math is relative to the plot area right of it.
 
 import { useLayoutEffect, useRef, useState } from "react";
-import { bucketize, pixelRangeToWindow } from "@/lib/histogram";
+import { bucketize, countTicks, pixelRangeToWindow } from "@/lib/histogram";
 import type { FlatLog } from "@/lib/flatten";
 import { LEGEND_GROUPS, type LegendGroup } from "@/lib/severity";
 import type { TimeWindow } from "@/lib/time";
@@ -37,6 +38,16 @@ function useElementWidth() {
     return () => observer.disconnect();
   }, []);
   return { ref, width };
+}
+
+function formatCount(n: number): string {
+  if (n >= 1_000_000) return `${trimDecimal(n / 1_000_000)}M`;
+  if (n >= 1000) return `${trimDecimal(n / 1000)}k`;
+  return String(n);
+}
+
+function trimDecimal(v: number): string {
+  return v >= 10 || Number.isInteger(v) ? String(Math.round(v)) : v.toFixed(1);
 }
 
 function formatTick(ms: number, windowMs: number): string {
@@ -72,15 +83,25 @@ export function Histogram({
 
   const { bucketMs, buckets } = bucketize(logs, window);
   const windowMs = window.toMs - window.fromMs;
-  const maxTotal = Math.max(1, ...buckets.map((b) => b.total));
+  const dataMax = Math.max(0, ...buckets.map((b) => b.total));
+  const maxTotal = Math.max(1, dataMax);
+  const yTicks = countTicks(dataMax);
 
-  const slotWidth = width / buckets.length;
+  // Gutter sized to the widest y label (~6px/char at 10px tabular-nums) plus
+  // an 8px gap to the bars, matching the container's 8px left padding so the
+  // numbers get equal air on both sides.
+  const plotX = 8 + 6 * Math.max(1, ...yTicks.map((t) => formatCount(t).length));
+  const plotWidth = Math.max(0, width - plotX);
+  const slotWidth = plotWidth / buckets.length;
   const barWidth = Math.max(1, slotWidth - BAR_GAP);
 
+  // Plot-relative x in [0, plotWidth]; the y-axis gutter clamps to 0.
   const pointerX = (e: React.PointerEvent) => {
     const rect = e.currentTarget.getBoundingClientRect();
-    return Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
+    return Math.min(Math.max(e.clientX - rect.left - plotX, 0), plotWidth);
   };
+
+  const countToY = (count: number) => CHART_HEIGHT - (count / maxTotal) * (CHART_HEIGHT - 4);
 
   // ~5 interior axis ticks on bucket boundaries, plus edge labels at the
   // window bounds. Interior ticks too close to an edge are dropped so they
@@ -90,14 +111,14 @@ export function Histogram({
   const ticks = buckets.filter((_, i) => {
     if (i % tickStep !== 0 || i === 0) return false;
     const x = i * slotWidth;
-    return x >= EDGE_CLEARANCE && x <= width - EDGE_CLEARANCE;
+    return x >= EDGE_CLEARANCE && x <= plotWidth - EDGE_CLEARANCE;
   });
 
   const hoveredBucket = hovered !== null ? buckets[hovered] : null;
 
   return (
     <div ref={ref} className="relative mx-3 rounded-md bg-muted/40 px-2 pt-2" data-histogram>
-      {width > 0 && (
+      {plotWidth > 0 && (
         <>
           <svg
             width="100%"
@@ -114,21 +135,53 @@ export function Histogram({
               if (drag) {
                 setDrag({ ...drag, x1: x });
               } else {
-                const index = Math.floor((x / width) * buckets.length);
+                const index = Math.floor((x / plotWidth) * buckets.length);
                 setHovered(index >= 0 && index < buckets.length ? index : null);
               }
             }}
             onPointerUp={(e) => {
               if (!drag) return;
               setDrag(null);
-              const next = pixelRangeToWindow(drag.x0, pointerX(e), width, window);
+              const next = pixelRangeToWindow(drag.x0, pointerX(e), plotWidth, window);
               onWindowChange(next);
             }}
             onPointerLeave={() => setHovered(null)}
           >
+            {/* y-axis: count gridlines + labels in the left gutter */}
+            {yTicks.map((count) => {
+              const y = countToY(count);
+              return (
+                <g key={count} data-y-tick>
+                  <line
+                    x1={plotX}
+                    x2={width}
+                    y1={y + 0.5}
+                    y2={y + 0.5}
+                    stroke="var(--border)"
+                    strokeOpacity={0.5}
+                  />
+                  <text
+                    x={0}
+                    y={Math.max(y + 3, 9)}
+                    textAnchor="start"
+                    className="fill-muted-foreground text-[10px] tabular-nums"
+                  >
+                    {formatCount(count)}
+                  </text>
+                </g>
+              );
+            })}
+            <text
+              x={0}
+              y={CHART_HEIGHT + 3}
+              textAnchor="start"
+              className="fill-muted-foreground text-[10px] tabular-nums"
+            >
+              0
+            </text>
             {/* baseline */}
             <line
-              x1={0}
+              x1={plotX}
               x2={width}
               y1={CHART_HEIGHT + 0.5}
               y2={CHART_HEIGHT + 0.5}
@@ -136,7 +189,7 @@ export function Histogram({
             />
             {buckets.map((bucket, i) => {
               if (bucket.total === 0) return null;
-              const x = i * slotWidth + BAR_GAP / 2;
+              const x = plotX + i * slotWidth + BAR_GAP / 2;
               let y = CHART_HEIGHT;
               // Stack most-severe at the bottom; LEGEND_GROUPS is ordered
               // error→unknown, so iterate as-is from the baseline up.
@@ -165,7 +218,7 @@ export function Histogram({
             })}
             {/* edge labels: window start and end */}
             <text
-              x={0}
+              x={plotX}
               y={CHART_HEIGHT + AXIS_HEIGHT - 4}
               textAnchor="start"
               className="fill-muted-foreground text-[10px]"
@@ -183,7 +236,7 @@ export function Histogram({
             {/* axis ticks */}
             {ticks.map((bucket, i) => {
               const index = buckets.indexOf(bucket);
-              const x = index * slotWidth;
+              const x = plotX + index * slotWidth;
               return (
                 <g key={i}>
                   <line
@@ -207,7 +260,7 @@ export function Histogram({
             {/* hover highlight */}
             {hovered !== null && !drag && (
               <rect
-                x={hovered * slotWidth}
+                x={plotX + hovered * slotWidth}
                 y={0}
                 width={slotWidth}
                 height={CHART_HEIGHT}
@@ -218,7 +271,7 @@ export function Histogram({
             {/* drag overlay */}
             {drag && (
               <rect
-                x={Math.min(drag.x0, drag.x1)}
+                x={plotX + Math.min(drag.x0, drag.x1)}
                 y={0}
                 width={Math.abs(drag.x1 - drag.x0)}
                 height={CHART_HEIGHT}
@@ -235,7 +288,7 @@ export function Histogram({
             <div
               className="pointer-events-none absolute top-0 z-10 rounded-md border bg-popover px-2 py-1.5 text-xs text-popover-foreground shadow-md"
               style={{
-                left: Math.min(hovered! * slotWidth + slotWidth / 2 + 12, width - 150),
+                left: Math.min(plotX + hovered! * slotWidth + slotWidth / 2 + 12, width - 150),
               }}
               data-histogram-tooltip
             >
