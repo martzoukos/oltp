@@ -153,7 +153,9 @@ export function LogsView() {
     if (e.key === "Escape" && sheetOpen) setSelectedId(null);
   };
   const keyRef = useRef(handleGlobalKey);
-  keyRef.current = handleGlobalKey;
+  useEffect(() => {
+    keyRef.current = handleGlobalKey;
+  });
   useEffect(() => {
     // On document, not window: `window` is shadowed by the time window here.
     const listener = (e: KeyboardEvent) => keyRef.current(e);
