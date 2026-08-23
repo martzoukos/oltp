@@ -82,9 +82,16 @@ export function Histogram({
     return Math.min(Math.max(e.clientX - rect.left, 0), rect.width);
   };
 
-  // ~5 axis ticks on bucket boundaries.
+  // ~5 interior axis ticks on bucket boundaries, plus edge labels at the
+  // window bounds. Interior ticks too close to an edge are dropped so they
+  // don't collide with the edge labels.
+  const EDGE_CLEARANCE = 56;
   const tickStep = Math.max(1, Math.round(buckets.length / 5));
-  const ticks = buckets.filter((_, i) => i % tickStep === 0 && i > 0);
+  const ticks = buckets.filter((_, i) => {
+    if (i % tickStep !== 0 || i === 0) return false;
+    const x = i * slotWidth;
+    return x >= EDGE_CLEARANCE && x <= width - EDGE_CLEARANCE;
+  });
 
   const hoveredBucket = hovered !== null ? buckets[hovered] : null;
 
@@ -156,6 +163,23 @@ export function Histogram({
                 </g>
               );
             })}
+            {/* edge labels: window start and end */}
+            <text
+              x={0}
+              y={CHART_HEIGHT + AXIS_HEIGHT - 4}
+              textAnchor="start"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {formatTick(window.fromMs, windowMs)}
+            </text>
+            <text
+              x={width}
+              y={CHART_HEIGHT + AXIS_HEIGHT - 4}
+              textAnchor="end"
+              className="fill-muted-foreground text-[10px]"
+            >
+              {formatTick(window.toMs, windowMs)}
+            </text>
             {/* axis ticks */}
             {ticks.map((bucket, i) => {
               const index = buckets.indexOf(bucket);
